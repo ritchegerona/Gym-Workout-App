@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.155 0.01 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.155 0.01 260);
+  --muted: oklch(0.96 0.005 260);
+  --muted-foreground: oklch(0.5 0.015 260);
+  --border: oklch(0.9 0.005 260);
+  --input: oklch(0.93 0.005 260);
+  --primary: oklch(0.22 0.02 260);
+  --primary-foreground: oklch(0.98 0 0);
+  --accent: oklch(0.62 0.19 145);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.58 0.22 27);
+  --ring: oklch(0.5 0.02 260);
+  --success: oklch(0.55 0.15 150);
+}
+
+.dark {
+  --background: oklch(0.14 0.005 260);
+  --foreground: oklch(0.96 0.005 260);
+  --card: oklch(0.185 0.008 260);
+  --card-foreground: oklch(0.96 0.005 260);
+  --muted: oklch(0.24 0.01 260);
+  --muted-foreground: oklch(0.68 0.012 260);
+  --border: oklch(0.28 0.01 260);
+  --input: oklch(0.26 0.01 260);
+  --primary: oklch(0.85 0.21 128);
+  --primary-foreground: oklch(0.16 0.02 130);
+  --accent: oklch(0.85 0.21 128);
+  --accent-foreground: oklch(0.16 0.02 130);
+  --destructive: oklch(0.65 0.2 25);
+  --ring: oklch(0.6 0.02 260);
+  --success: oklch(0.72 0.17 150);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Keep inputs at >=16px on iOS so they don't zoom the viewport */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Remove number input spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::selection {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
