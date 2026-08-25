@@ -18,11 +18,21 @@ export function PwaUpdater() {
   const updateSWRef = useRef<(reload?: boolean) => Promise<void>>(async () => {});
 
   useEffect(() => {
-    updateSWRef.current = registerSW({
-      immediate: true,
-      onNeedRefresh() {
-        setNeedRefresh(true);
-      },
+    // Register off the critical path so it doesn't compete with app boot
+    const start = () => {
+      updateSWRef.current = registerSW({
+        immediate: true,
+        onNeedRefresh() {
+          setNeedRefresh(true);
+        },
+      });
+    };
+    if (document.readyState === "complete") {
+      const t = window.setTimeout(start, 1500);
+      return () => window.clearTimeout(t);
+    }
+    window.addEventListener("load", () => window.setTimeout(start, 1500), {
+      once: true,
     });
   }, []);
 

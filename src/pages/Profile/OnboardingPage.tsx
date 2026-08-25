@@ -106,11 +106,12 @@ export function OnboardingPage() {
   const isLast = step === steps.length - 1;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background px-6 py-10">
+    <main className="flex min-h-dvh flex-col bg-background px-6 py-10">
       {/* Progress dots */}
       <div
         className="mx-auto mb-8 flex w-full max-w-md gap-1.5"
         role="progressbar"
+        aria-label={`Onboarding step ${step + 1} of ${steps.length}`}
         aria-valuemin={1}
         aria-valuemax={steps.length}
         aria-valuenow={step + 1}
@@ -149,7 +150,7 @@ export function OnboardingPage() {
           Skip
         </Button>
       </div>
-    </div>
+    </main>
   );
 }
 

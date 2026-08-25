@@ -12,10 +12,12 @@ import HomePage from "./pages/Home/HomePage";
 import WorkoutsPage from "./pages/Workouts/WorkoutsPage";
 import WorkoutBuilderPage from "./pages/Workouts/WorkoutBuilderPage";
 import ActiveWorkoutPage from "./pages/ActiveWorkout/ActiveWorkoutPage";
-import HistoryPage from "./pages/History/HistoryPage";
-import SessionDetailPage from "./pages/History/SessionDetailPage";
-import ProfilePage from "./pages/Profile/ProfilePage";
-import CompleteSummaryPage from "./pages/ActiveWorkout/CompleteSummaryPage";
+const HistoryPage = lazy(() => import("./pages/History/HistoryPage"));
+const SessionDetailPage = lazy(() => import("./pages/History/SessionDetailPage"));
+const ProfilePage = lazy(() => import("./pages/Profile/ProfilePage"));
+const CompleteSummaryPage = lazy(
+  () => import("./pages/ActiveWorkout/CompleteSummaryPage"),
+);
 import OnboardingPage from "./pages/Profile/OnboardingPage";
 import { PwaUpdater } from "./components/PwaPrompts";
 
@@ -106,10 +108,38 @@ export default function App() {
                   </Suspense>
                 }
               />
-              <Route path="/active" element={<ActiveWorkoutPage />} />
-              <Route path="/complete/:id" element={<CompleteSummaryPage />} />
-              <Route path="/history" element={<HistoryPage />} />
-              <Route path="/history/:id" element={<SessionDetailPage />} />
+              <Route
+                path="/active"
+                element={
+                  <Suspense>
+                    <ActiveWorkoutPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/complete/:id"
+                element={
+                  <Suspense>
+                    <CompleteSummaryPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/history"
+                element={
+                  <Suspense>
+                    <HistoryPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/history/:id"
+                element={
+                  <Suspense>
+                    <SessionDetailPage />
+                  </Suspense>
+                }
+              />
               <Route
                 path="/progress"
                 element={
@@ -118,7 +148,14 @@ export default function App() {
                   </Suspense>
                 }
               />
-              <Route path="/profile" element={<ProfilePage />} />
+              <Route
+                path="/profile"
+                element={
+                  <Suspense>
+                    <ProfilePage />
+                  </Suspense>
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

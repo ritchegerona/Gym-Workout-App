@@ -19,6 +19,7 @@ import { useRestTimer } from "../../hooks/useRestTimer";
 import { useWakeLock } from "../../hooks/useWakeLock";
 import { getFinishedSessions } from "../../db/sessions";
 import { getBestRecords } from "../../db/records";
+import { getAllExercises } from "../../db/exercises";
 import { finishWorkout } from "../../services/workoutService";
 import { getTemplate, saveTemplate } from "../../db/templates";
 import {
@@ -27,7 +28,10 @@ import {
   totalSessionVolume,
 } from "../../utils/calculations";
 import { formatClock, formatDuration } from "../../utils/format";
-import { formatWeight } from "../../utils/units";
+import { formatWeight, kgToDisplay } from "../../utils/units";
+import {
+  platesLabelForKg,
+} from "../../utils/plates";
 import type { SetRecord } from "../../types";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
@@ -74,6 +78,22 @@ export default function ActiveWorkoutPage() {
 
   // Keep the screen on for the whole session
   useWakeLock(sessionId !== null);
+
+  const [equipmentMap, setEquipmentMap] = useState<Map<string, string>>(
+    new Map(),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAllExercises().then((exs) => {
+      if (!cancelled) {
+        setEquipmentMap(new Map(exs.map((e) => [e.id, e.equipment])));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -256,6 +276,7 @@ export default function ActiveWorkoutPage() {
                 index={exIdx}
                 unit={unit}
                 name={ex.name}
+                isBarbell={equipmentMap.get(ex.exerciseId) === "Barbell"}
                 restSec={ex.restSec}
                 sets={ex.sets}
                 prevPerformance={prevPerfRef.current.get(ex.exerciseId)}
@@ -438,6 +459,7 @@ function RestTimerPanel() {
       <div
         className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted"
         role="progressbar"
+        aria-label="Rest time remaining"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(progress * 100)}
@@ -462,6 +484,7 @@ interface ExerciseCardProps {
   index: number;
   unit: "kg" | "lb";
   name: string;
+  isBarbell?: boolean;
   restSec: number;
   sets: SetRecord[];
   prevPerformance?: string[];
@@ -480,6 +503,7 @@ function ExerciseCard({
   index,
   unit,
   name,
+  isBarbell,
   restSec,
   sets,
   prevPerformance,
@@ -563,6 +587,11 @@ function ExerciseCard({
             {prevPerformance.length > 5 ? ` · +${prevPerformance.length - 5}` : ""}
           </span>
         </p>
+      )}
+
+      {/* Plate loading hint for the next set on barbell lifts */}
+      {isBarbell && (
+        <PlatesHint unit={unit} sets={sets} />
       )}
 
       {/* Set rows */}
@@ -663,6 +692,33 @@ function MenuRow({
     >
       <Icon size={15} aria-hidden="true" /> {label}
     </button>
+  );
+}
+
+function PlatesHint({
+  unit,
+  sets,
+}: {
+  unit: "kg" | "lb";
+  sets: SetRecord[];
+}) {
+  const nextIdx = sets.findIndex((st) => st.completedAt === 0);
+  if (nextIdx === -1) return null;
+  const target = sets[nextIdx];
+  if (!(target.weight > 0)) return null;
+  return (
+    <p className="mx-4 mb-1.5 flex items-center gap-1.5 rounded-lg bg-primary/[0.07] px-2.5 py-1.5 text-xs text-muted-foreground">
+      <span className="shrink-0 font-semibold text-primary">Set {nextIdx + 1}</span>
+      <span className="truncate">
+        Load per side ({unit}):{" "}
+        <span className="font-mono font-semibold text-foreground">
+          {platesLabelForKg(target.weight, unit)}
+        </span>
+        <span className="ml-1 opacity-70">
+          ({Math.round((kgToDisplay(target.weight, unit) * 100) / 100)} {unit} total)
+        </span>
+      </span>
+    </p>
   );
 }
 
