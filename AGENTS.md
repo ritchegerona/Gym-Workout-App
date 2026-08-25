@@ -73,3 +73,20 @@ IndexedDB stores: `exercises`, `templates`, `sessions`, `records`. Schema bump r
 2. `npm test` passes (add/extend tests for logic: calculations, PR detection, persistence, timer)
 3. `npm run build` succeeds
 4. Manual check of mobile layout (≤430px) and desktop (≥1024px) if UI changed
+
+## Current Status (updated Aug 25, 2026)
+
+- **Live:** https://ritchegerona.github.io/Gym-Workout-App · Repo: `ritchegerona/Gym-Workout-App` (public, MIT)
+- **Quality gates:** 87/87 tests · Lighthouse 94–95 perf / 100 a11y / 100 BP / 100 SEO · CI auto-deploys `main` → Pages
+- **Shipped v1.0.1:** GitHub Pages base-path + SPA 404 fallback, JSON import/export (merge/replace), PWA install/update UX, Wake Lock during sessions, barbell plate calculator (`src/utils/plates.ts`), robots.txt, lazy routes, deferred SW registration
+- **Deploy mechanics:** CI sets `BASE_PATH=/<repo-name>/`; GitHub Actions pinned to node24-compatible majors (checkout@v7, setup-node@v7, configure-pages@v6, upload-pages-artifact@v5, deploy-pages@v5)
+
+### Next up (in order)
+1. Custom exercise creation (IDB-persisted, editable/deletable)
+2. Supersets/circuits (builder grouping + round-based active flow)
+3. Mid-workout exercise swap (keep recorded sets)
+4. Body-weight logging + weekly muscle-group volume charts
+5. Playwright e2e + keyboard/screen-reader accessibility pass
+6. Low priority: RPE/set notes UI, smart rest defaults by type, 1RM calculator + strength standards, cardio activities, weekly planner
+
+Deferred to v3: optional accounts + cloud sync.
