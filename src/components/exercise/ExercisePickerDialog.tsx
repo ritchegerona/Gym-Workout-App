@@ -19,9 +19,19 @@ interface Props {
   onClose: () => void;
   onConfirm: (selected: Exercise[]) => void;
   excludeIds?: string[];
+  /** Single-select mode for actions like mid-workout swap. */
+  single?: boolean;
+  confirmLabel?: string;
 }
 
-export function ExercisePickerDialog({ open, onClose, onConfirm, excludeIds = [] }: Props) {
+export function ExercisePickerDialog({
+  open,
+  onClose,
+  onConfirm,
+  excludeIds = [],
+  single = false,
+  confirmLabel = "Add",
+}: Props) {
   const all = useAsync(getAllExercises, []);
   const [search, setSearch] = useState("");
   const [muscle, setMuscle] = useState<MuscleGroup | "all">("all");
@@ -45,7 +55,9 @@ export function ExercisePickerDialog({ open, onClose, onConfirm, excludeIds = []
     setSelected((sel) =>
       sel.some((s) => s.id === ex.id)
         ? sel.filter((s) => s.id !== ex.id)
-        : [...sel, ex],
+        : single
+          ? [ex]
+          : [...sel, ex],
     );
   }
 
@@ -58,7 +70,7 @@ export function ExercisePickerDialog({ open, onClose, onConfirm, excludeIds = []
     <Dialog
       open={open}
       onClose={close}
-      title="Add Exercises"
+      title={single ? "Swap Exercise" : "Add Exercises"}
       footer={
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">
@@ -72,7 +84,7 @@ export function ExercisePickerDialog({ open, onClose, onConfirm, excludeIds = []
               setSelected([]);
             }}
           >
-            Add
+            {confirmLabel}
           </Button>
         </div>
       }

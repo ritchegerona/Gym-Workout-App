@@ -10,6 +10,7 @@ npm run build      # typecheck (tsc -b) + production build to dist/
 npm run preview    # serve production build (test SW/manifest here)
 npm test           # vitest, single run
 npm run test:watch # vitest watch mode
+npm run test:e2e   # Playwright e2e (builds + previews, needs chromium installed)
 npm run typecheck  # tsc --noEmit
 ```
 
@@ -26,35 +27,44 @@ src/
 │                    History (+detail), Progress, Profile (+onboarding)
 ├── components/
 │   ├── ui/          design-system primitives: Button, Card, Input/Select,
-│   │                Dialog (bottom-sheet on mobile), Switch/ToggleGroup, Toast, EmptyState
-│   ├── exercise/    ExercisePickerDialog (shared by builder + active workout)
-│   ├── layout/      AppLayout (bottom tab bar <md, sidebar ≥md, active-workout banner)
+│   │                Dialog (bottom-sheet on mobile, focus trap), Switch/ToggleGroup, Toast, EmptyState
+│   ├── exercise/    ExercisePickerDialog (multi/single modes), ExerciseFormDialog (custom CRUD)
+│   ├── layout/      AppLayout (bottom tab bar <md, sidebar ≥md, active banner, skip link)
 │   └── workout/     RestTimerBar (global mini timer)
 ├── stores/
 │   ├── activeWorkout.ts  zustand + persist ("irontrack-active-workout") — the in-progress
 │   │                     session; written to localStorage on EVERY mutation (recovery).
+│   │                     Also: restReason ("set"|"round"), swapExercise (keeps recorded sets).
 │   └── settings.ts       zustand + persist ("irontrack-settings") — units, theme, profile,
-│                         feedback toggles, default rest.
+│                         bodyWeightLog, feedback toggles, default rest, smart rest defaults,
+│                         logBodyWeight/removeBodyWeightEntry.
 ├── services/        workoutService (finishWorkout = PR detection + persistence),
-│                    statsService (weekly summary, streaks, progression series)
-├── db/              idb wrapper: db.ts (schema v1), exercises/templates/sessions/records repos
+│                    statsService (weekly summary, streaks, progression series,
+│                    muscleVolumePerWeek — pure)
+├── db/              idb wrapper: db.ts (schema v1), exercises/templates/sessions/records repos;
+│                    exercises.ts owns custom-exercise helpers (makeCustomExerciseId,
+│                    deleteExercise, exerciseInUse)
 ├── data/exercises.ts ~44-exercise seed library, auto-seeded into IDB on first run
 ├── hooks/           useRestTimer (timestamp countdown + sound/vibrate/notification),
 │                    useApplyTheme (.dark class on <html>), useAsync
-├── utils/           calculations.ts (volume, Epley 1RM, detectSetPRs — pure),
-│                    units.ts (kg internal ↔ kg/lb display), format.ts (durations/dates)
-├── types/index.ts   all domain types
+├── utils/           calculations.ts (volume, Epley 1RM, detectSetPRs, suggestRestSec — pure),
+│                    supersets.ts (block/round helpers — pure),
+│                    strengthStandard.ts (big-lift bodyweight-ratio standards + classify),
+│                    plates.ts, units.ts (kg internal ↔ kg/lb display), format.ts (durations/dates)
+├── types/index.ts   all domain types (incl. supersetGroup, SetRecord.rpe/note, BodyWeightEntry)
 └── styles/globals.css  Tailwind v4 theme; semantic CSS variables (--background, --primary…)
 ```
 
+e2e/ — Playwright specs (onboarding, custom-exercise CRUD, full build→train→finish flow). `seedOnboarded(page)` via `page.addInitScript`; the config in `playwright.config.ts` spins up `vite preview` (production build + SW) automatically.
+
 ### Data model
 
-- **Exercise** — seeded catalog (id, muscle group, equipment, type, instructions)
-- **WorkoutTemplate** — reusable plan; `exercises[].sets[]` hold targetReps/targetWeight/restSec
-- **WorkoutSession** — finished record; per-set SetRecord `{weight(kg), reps, completedAt}`
+- **Exercise** — seeded catalog + custom exercises (id, muscle group, equipment, type, instructions); custom ids use the `ex-custom-` prefix
+- **WorkoutTemplate** — reusable plan; `exercises[].sets[]` hold targetReps/targetWeight/restSec; `supersetGroup` links consecutive exercises into round-based blocks
+- **WorkoutSession** — finished record; per-set SetRecord `{weight(kg), reps, completedAt}` plus optional `rpe`/`note`
 - **PersonalRecord** — one row per PR hit; types: `max-weight`, `best-1rm`, `best-set-volume`. History is kept (multiple rows per type across sessions); resolve bests via `getBestRecords()`
 
-IndexedDB stores: `exercises`, `templates`, `sessions`, `records`. Schema bump requires a new version in `src/db/db.ts`.
+IndexedDB stores: `exercises`, `templates`, `sessions`, `records`. Schema bump requires a new version in `src/db/db.ts`. Body-weight log lives in the settings store (`profile.bodyWeightLog`), not IDB.
 
 ## Critical conventions & gotchas
 
@@ -74,19 +84,17 @@ IndexedDB stores: `exercises`, `templates`, `sessions`, `records`. Schema bump r
 3. `npm run build` succeeds
 4. Manual check of mobile layout (≤430px) and desktop (≥1024px) if UI changed
 
-## Current Status (updated Aug 25, 2026)
+## Current Status (updated Aug 28, 2026)
 
 - **Live:** https://ritchegerona.github.io/Gym-Workout-App · Repo: `ritchegerona/Gym-Workout-App` (public, MIT)
-- **Quality gates:** 87/87 tests · Lighthouse 94–95 perf / 100 a11y / 100 BP / 100 SEO · CI auto-deploys `main` → Pages
-- **Shipped v1.0.1:** GitHub Pages base-path + SPA 404 fallback, JSON import/export (merge/replace), PWA install/update UX, Wake Lock during sessions, barbell plate calculator (`src/utils/plates.ts`), robots.txt, lazy routes, deferred SW registration
+- **Quality gates:** 119/119 unit tests · 3/3 Playwright e2e · Lighthouse 94–95 perf / 100 a11y / 100 BP / 100 SEO · CI auto-deploys `main` → Pages
+- **Shipped v1.2.0:** custom exercise CRUD, supersets/circuits (builder grouping + round-based active flow + swap), mid-workout exercise swap, RPE/set notes, smart rest defaults by exercise type, body-weight logging with trend sparkline, weekly muscle-group volume chart, 1RM calculator + strength standards, Dialog focus trap + skip link, Playwright e2e suite
 - **Deploy mechanics:** CI sets `BASE_PATH=/<repo-name>/`; GitHub Actions pinned to node24-compatible majors (checkout@v7, setup-node@v7, configure-pages@v6, upload-pages-artifact@v5, deploy-pages@v5)
 
 ### Next up (in order)
-1. Custom exercise creation (IDB-persisted, editable/deletable)
-2. Supersets/circuits (builder grouping + round-based active flow)
-3. Mid-workout exercise swap (keep recorded sets)
-4. Body-weight logging + weekly muscle-group volume charts
-5. Playwright e2e + keyboard/screen-reader accessibility pass
-6. Low priority: RPE/set notes UI, smart rest defaults by type, 1RM calculator + strength standards, cardio activities, weekly planner
+1. Run Playwright e2e in CI (separate job, `npm run test:e2e` with `npx playwright install --with-deps chromium`)
+2. Cardio activities + weekly planner
+3. Deeper keyboard/screen-reader pass (e.g. rest select keyboard ops, RPE radiogroup arrows)
+4. Body-weight trend chart on the Progress page (existing log already in settings store)
 
 Deferred to v3: optional accounts + cloud sync.

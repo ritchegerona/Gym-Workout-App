@@ -42,6 +42,8 @@ export interface WorkoutExercise {
   exerciseId: string;
   name: string;
   sets: TemplateSetConfig[];
+  /** Shared id groups exercises into a superset/circuit (round-based flow). */
+  supersetGroup?: string | null;
 }
 
 export interface WorkoutTemplate {
@@ -59,6 +61,10 @@ export interface SetRecord {
   weight: number; // kg
   reps: number;
   completedAt: number;
+  /** Subjective effort 1–10 (optional). */
+  rpe?: number | null;
+  /** Free-text note per set (optional). */
+  note?: string;
 }
 
 export interface SessionExercise {
@@ -67,6 +73,8 @@ export interface SessionExercise {
   restSec: number;
   targetSets: number;
   sets: SetRecord[];
+  /** Shared id groups exercises into a superset/circuit (round-based flow). */
+  supersetGroup?: string | null;
 }
 
 export interface WorkoutSession {
@@ -93,6 +101,13 @@ export interface PersonalRecord {
   date: number;
 }
 
+/** Epoch-millis version of a set — weight always kg. */
+export interface BodyWeightEntry {
+  id: string;
+  date: number;
+  weightKg: number;
+}
+
 export type UnitSystem = "kg" | "lb";
 export type ThemeMode = "light" | "dark" | "system";
 export type TrainingGoal =
@@ -108,4 +123,6 @@ export interface UserProfile {
   heightCm: number | null;
   bodyWeightKg: number | null;
   goal: TrainingGoal | null;
+  /** Historical body-weight log (most recent last). */
+  bodyWeightLog?: BodyWeightEntry[];
 }

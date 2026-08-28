@@ -3,9 +3,10 @@ import {
   computeStreak,
   computeWeeklySummary,
   exerciseProgression,
+  muscleVolumePerWeek,
   workoutsPerWeek,
 } from "./statsService";
-import type { WorkoutSession } from "../types";
+import type { Exercise, WorkoutSession } from "../types";
 
 function session(daysAgo: number, weight = 60, reps = 8): WorkoutSession {
   const start = Date.now() - daysAgo * 86_400_000;
@@ -81,5 +82,38 @@ describe("exerciseProgression", () => {
     empty.exercises[0].sets[0].completedAt = 0;
     const pts = exerciseProgression([other, empty], "ex-bench");
     expect(pts).toHaveLength(0);
+  });
+});
+
+describe("muscleVolumePerWeek", () => {
+  const bench = { id: "ex-bench", name: "Bench", muscleGroup: "Chest" } as Exercise;
+  const squat = { id: "ex-squat", name: "Squat", muscleGroup: "Legs" } as Exercise;
+  const map = new Map([
+    ["ex-bench", bench],
+    ["ex-squat", squat],
+  ]);
+
+  it("attributes this week's volume to the right muscle groups", () => {
+    const s = session(0, 60, 8);
+    s.exercises.push({
+      exerciseId: "ex-squat",
+      name: "Squat",
+      restSec: 90,
+      targetSets: 1,
+      sets: [{ weight: 100, reps: 5, completedAt: s.startedAt + 2000 }],
+    });
+    const rows = muscleVolumePerWeek([s], map, 1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].Chest).toBe(480);
+    expect(rows[0].Legs).toBe(500);
+  });
+
+  it("skips weeks outside the requested window and unknown exercises", () => {
+    const s = session(0);
+    s.exercises[0].exerciseId = "ex-gone";
+    const old = session(40);
+    const rows = muscleVolumePerWeek([s, old], map, 1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].Chest).toBeUndefined();
   });
 });

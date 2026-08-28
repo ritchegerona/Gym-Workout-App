@@ -1,9 +1,10 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Pencil, Trophy } from "lucide-react";
+import { ArrowLeft, Link2, Pencil, Trophy } from "lucide-react";
 import { useAsync } from "../../hooks/useAsync";
 import { getSession } from "../../db/sessions";
 import { getRecordsForExercise } from "../../db/records";
 import { useSettings } from "../../stores/settings";
+import { buildSupersetBlocks } from "../../utils/supersets";
 import {
   countCompletedSets,
   exerciseVolume,
@@ -72,10 +73,22 @@ export default function SessionDetailPage() {
       </dl>
 
       {s.exercises.map((ex) => (
-        <SessionExerciseBlock key={ex.exerciseId} exercise={ex} unit={unit} sessionId={s.id} />
+        <SessionExerciseBlock key={ex.exerciseId} exercise={ex} unit={unit} sessionId={s.id} blockLetters={blockLetterMap(s.exercises)} />
       ))}
     </div>
   );
+}
+
+/** letter per exerciseId for superset display; standalone is undefined. */
+function blockLetterMap(exercises: SessionExercise[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const b of buildSupersetBlocks(exercises)) {
+    if (b.group === null || b.items.length === 1) continue;
+    for (const entry of b.items) {
+      map.set(entry.item.exerciseId, entry.letter);
+    }
+  }
+  return map;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -91,21 +104,31 @@ function SessionExerciseBlock({
   exercise,
   unit,
   sessionId,
+  blockLetters,
 }: {
   exercise: SessionExercise;
   unit: "kg" | "lb";
   sessionId: string;
+  blockLetters: Map<string, string>;
 }) {
   const prs = useAsync(() => getRecordsForExercise(exercise.exerciseId), [
     exercise.exerciseId,
   ]);
   const sessionPRs = (prs.data ?? []).filter((r) => r.sessionId === sessionId);
   const vol = exerciseVolume(exercise.sets);
+  const letter = blockLetters.get(exercise.exerciseId);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <header className="flex items-center justify-between gap-2 px-4 py-3">
-        <h2 className="truncate font-semibold">{exercise.name}</h2>
+        <h2 className="min-w-0 truncate font-semibold">
+          {letter ? (
+            <span className="mr-1.5 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 align-middle text-xs font-semibold text-primary">
+              <Link2 size={11} aria-hidden="true" /> {letter}
+            </span>
+          ) : null}
+          {exercise.name}
+        </h2>
         {sessionPRs.length > 0 && (
           <Link
             to="/progress"
@@ -125,6 +148,8 @@ function SessionExerciseBlock({
             <th className="px-4 py-2 font-semibold">Set</th>
             <th className="px-4 py-2 font-semibold">Weight</th>
             <th className="px-4 py-2 font-semibold">Reps</th>
+            <th className="px-4 py-2 font-semibold">RPE</th>
+            <th className="px-4 py-2 font-semibold">Note</th>
             <th className="px-4 py-2 text-right font-semibold">Volume</th>
           </tr>
         </thead>
@@ -136,6 +161,12 @@ function SessionExerciseBlock({
                 {formatWeight(st.weight, unit)}
               </td>
               <td className="px-4 py-2 font-mono tabular-nums">{st.reps}</td>
+              <td className="px-4 py-2 font-mono tabular-nums">
+                {st.rpe ? `RPE ${st.rpe}` : "—"}
+              </td>
+              <td className="max-w-[220px] px-4 py-2 text-muted-foreground">
+                <span className="block truncate">{st.note?.trim() || "—"}</span>
+              </td>
               <td className="px-4 py-2 text-right font-mono tabular-nums text-muted-foreground">
                 {Math.round(st.weight * st.reps)}
               </td>
@@ -144,7 +175,7 @@ function SessionExerciseBlock({
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={3} className="px-4 pb-3 pt-1 text-xs text-muted-foreground">
+            <td colSpan={5} className="px-4 pb-3 pt-1 text-xs text-muted-foreground">
               Exercise volume
             </td>
             <td className="px-4 pb-3 pt-1 text-right font-semibold tabular-nums">
@@ -157,16 +188,25 @@ function SessionExerciseBlock({
       {/* Mobile stacked set rows */}
       <ol className="divide-y divide-border/50 sm:hidden">
         {exercise.sets.map((st, i) => (
-          <li key={i} className="flex items-center justify-between px-4 py-2.5">
-            <span className="w-8 font-mono text-sm font-bold text-muted-foreground tabular-nums">
-              {i + 1}
-            </span>
-            <span className="font-mono text-sm font-semibold tabular-nums">
-              {formatWeight(st.weight, unit)} × {st.reps}
-            </span>
-            <span className="font-mono text-xs text-muted-foreground tabular-nums">
-              {Math.round(st.weight * st.reps)}
-            </span>
+          <li key={i} className="px-4 py-2.5">
+            <div className="flex items-center justify-between">
+              <span className="w-8 font-mono text-sm font-bold text-muted-foreground tabular-nums">
+                {i + 1}
+              </span>
+              <span className="font-mono text-sm font-semibold tabular-nums">
+                {formatWeight(st.weight, unit)} × {st.reps}
+              </span>
+              <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                {Math.round(st.weight * st.reps)}
+              </span>
+            </div>
+            {(st.rpe || st.note?.trim()) && (
+              <p className="mt-0.5 pl-8 text-xs text-muted-foreground">
+                {st.rpe ? <span className="font-semibold text-foreground">RPE {st.rpe}</span> : null}
+                {st.rpe && st.note?.trim() ? " · " : null}
+                {st.note?.trim()}
+              </p>
+            )}
           </li>
         ))}
       </ol>

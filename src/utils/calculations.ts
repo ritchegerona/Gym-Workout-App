@@ -1,4 +1,4 @@
-import type { SetRecord } from "../types";
+import type { Exercise, SetRecord } from "../types";
 
 /** Volume of a single set: weight × reps. */
 export function setVolume(weight: number, reps: number): number {
@@ -61,4 +61,24 @@ export function detectSetPRs(
   if (v > prevBestSetVolume && v > 0)
     prs.push({ type: "best-set-volume", value: v });
   return prs;
+}
+
+/**
+ * Suggested rest between sets based on the movement's demands.
+ * Compounds get longer, calves/core recover fastest.
+ */
+export function suggestRestSec(
+  exercise: Pick<Exercise, "type" | "equipment" | "muscleGroup">,
+): number {
+  if (exercise.muscleGroup === "Calves" || exercise.muscleGroup === "Core") {
+    return 60;
+  }
+  if (exercise.equipment === "Barbell" && exercise.type === "Compound") {
+    return 150;
+  }
+  if (exercise.type === "Compound") return 120;
+  if (exercise.muscleGroup === "Legs" || exercise.muscleGroup === "Glutes") {
+    return 120;
+  }
+  return 90;
 }

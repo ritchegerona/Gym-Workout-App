@@ -5,14 +5,18 @@ import {
   ChevronDown,
   ChevronUp,
   Dumbbell,
+  Link2,
   Plus,
   Save,
   Trash2,
+  Unlink,
 } from "lucide-react";
 import { getTemplate, saveTemplate } from "../../db/templates";
 import { useSettings } from "../../stores/settings";
 import { uid } from "../../db/db";
 import type { Exercise, WorkoutExercise, WorkoutTemplate } from "../../types";
+import { buildSupersetBlocks } from "../../utils/supersets";
+import { suggestRestSec } from "../../utils/calculations";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -24,6 +28,7 @@ export default function WorkoutBuilderPage() {
   const toast = useToast();
   const { id } = useParams<{ id: string }>();
   const defaultRest = useSettings((s) => s.defaultRestSec);
+  const smartRestDefaults = useSettings((s) => s.smartRestDefaults);
 
   const [name, setName] = useState("");
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
@@ -76,7 +81,13 @@ export default function WorkoutBuilderPage() {
       ...selected.map((ex) => ({
         exerciseId: ex.id,
         name: ex.name,
-        sets: [{ targetReps: 10, targetWeight: 20, restSec: defaultRest }],
+        sets: [
+          {
+            targetReps: 10,
+            targetWeight: 20,
+            restSec: smartRestDefaults ? suggestRestSec(ex) : defaultRest,
+          },
+        ],
       })),
     ]);
     setPickerOpen(false);
@@ -90,6 +101,24 @@ export default function WorkoutBuilderPage() {
       [next[idx], next[j]] = [next[j], next[idx]];
       return next;
     });
+  }
+
+  /** Merge the exercise at idx into a superset with the one before it. */
+  function groupWithPrevious(idx: number) {
+    setExercises((exs) => {
+      const prev = exs[idx - 1];
+      if (!prev || idx === 0) return exs;
+      const gid = prev.supersetGroup ?? uid();
+      return exs.map((e, i) =>
+        i === idx || i === idx - 1 ? { ...e, supersetGroup: gid } : e,
+      );
+    });
+  }
+
+  function ungroup(idx: number) {
+    setExercises((exs) =>
+      exs.map((e, i) => (i === idx ? { ...e, supersetGroup: null } : e)),
+    );
   }
 
   function handleSave() {
@@ -121,6 +150,16 @@ export default function WorkoutBuilderPage() {
   }
 
   if (!loaded) return null;
+
+  const blocks = buildSupersetBlocks(
+    exercises.map((we, idx) => ({ supersetGroup: we.supersetGroup ?? null, idx })),
+  );
+  const letterByIndex = new Map<number, string>();
+  for (const block of blocks) {
+    for (const entry of block.items) {
+      letterByIndex.set(entry.item.idx, entry.letter);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -159,9 +198,12 @@ export default function WorkoutBuilderPage() {
                 index={idx}
                 total={exercises.length}
                 exercise={we}
+                letter={letterByIndex.get(idx) ?? "A"}
                 onChange={(patch) => updateExercise(idx, patch)}
                 onApplyAll={(patch) => applyToAllSets(idx, patch)}
                 onMove={move}
+                onGroup={() => groupWithPrevious(idx)}
+                onUngroup={() => ungroup(idx)}
                 onRemove={() =>
                   setExercises((exs) => exs.filter((_, i) => i !== idx))
                 }
@@ -195,21 +237,28 @@ function BuilderExerciseCard({
   index,
   total,
   exercise,
+  letter,
   onChange,
   onApplyAll,
   onMove,
+  onGroup,
+  onUngroup,
   onRemove,
 }: {
   index: number;
   total: number;
   exercise: WorkoutExercise;
+  letter: string;
   onChange: (patch: Partial<WorkoutExercise>) => void;
   onApplyAll: (patch: Partial<{ targetReps: number; targetWeight: number; restSec: number }>) => void;
   onMove: (idx: number, dir: -1 | 1) => void;
+  onGroup: () => void;
+  onUngroup: () => void;
   onRemove: () => void;
 }) {
   const first = exercise.sets[0];
   const [setsCount, setSetsCount] = useState(exercise.sets.length);
+  const grouped = !!exercise.supersetGroup;
 
   useEffect(() => {
     setSetsCount(exercise.sets.length);
@@ -228,11 +277,42 @@ function BuilderExerciseCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-muted-foreground">
-            Exercise {index + 1}
+            {grouped ? (
+              <span className="flex items-center gap-1.5 text-primary">
+                <Link2 size={12} aria-hidden="true" />
+                Superset {letter} · Exercise {index + 1} of a block
+              </span>
+            ) : (
+              <>Exercise {index + 1}</>
+            )}
           </p>
           <h3 className="truncate font-semibold">{exercise.name}</h3>
         </div>
         <div className="flex shrink-0 gap-1">
+          {grouped ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Break superset for ${exercise.name}`}
+              onClick={onUngroup}
+              className="h-9 w-9 px-0 text-primary"
+              title="Break superset"
+            >
+              <Unlink size={16} aria-hidden="true" />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Start superset with ${exercise.name}`}
+              disabled={index === 0}
+              onClick={onGroup}
+              className="h-9 w-9 px-0"
+              title="Make this a superset with the previous exercise"
+            >
+              <Link2 size={16} aria-hidden="true" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -264,6 +344,17 @@ function BuilderExerciseCard({
           </Button>
         </div>
       </div>
+
+      {grouped && (
+        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-primary/[0.06] px-2.5 py-2 text-xs leading-relaxed text-muted-foreground">
+          <Link2 size={13} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
+          <span>
+            This exercise shares a block with the one above. In the workout,
+            complete one set of each exercise (A, B…) before resting — that's
+            one round.
+          </span>
+        </p>
+      )}
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <NumberField

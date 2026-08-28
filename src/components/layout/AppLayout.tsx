@@ -45,6 +45,13 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-dvh">
+      {/* Skip to content */}
+      <a
+        href="#main-content"
+        className="fixed left-3 top-3 z-[60] -translate-y-24 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg focus:translate-y-0"
+      >
+        Skip to content
+      </a>
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-border bg-card p-4 md:flex">
         <div className="mb-8 flex items-center gap-2 px-2 pt-2">
@@ -53,7 +60,7 @@ export function AppLayout() {
           </span>
           <span className="text-lg font-bold tracking-tight">IronTrack</span>
         </div>
-        <nav className="flex flex-col gap-1" aria-label="Main">
+        <nav className="flex flex-col gap-1" aria-label="Primary navigation">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
@@ -104,7 +111,11 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-4 md:px-8 md:pb-12 md:pt-8">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-4 focus:outline-none md:px-8 md:pb-12 md:pt-8"
+        >
           <Outlet />
         </main>
 
@@ -130,7 +141,7 @@ export function AppLayout() {
 
         {/* Mobile bottom nav */}
         <nav
-          aria-label="Main"
+          aria-label="Primary navigation"
           className="pb-safe fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-border bg-background/95 backdrop-blur md:hidden"
         >
           {NAV.map((item) => (

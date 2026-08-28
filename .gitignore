@@ -4,10 +4,16 @@ node_modules/
 # Build output
 dist/
 dev-dist/
+*.tsbuildinfo
 *.local
 
 # Coverage
 coverage/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
 
 # Editor / OS
 .DS_Store

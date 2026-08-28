@@ -1,6 +1,16 @@
 import { beforeEach, describe, it, expect } from "vitest";
 import { SEED_EXERCISES } from "../data/exercises";
-import { ensureExercisesSeeded, getAllExercises, getExercise } from "./exercises";
+import {
+  deleteExercise,
+  ensureExercisesSeeded,
+  exerciseInUse,
+  getAllExercises,
+  getExercise,
+  isCustomExercise,
+  makeCustomExerciseId,
+  newCustomExercise,
+  saveCustomExercise,
+} from "./exercises";
 import { deleteTemplate, getAllTemplates, getTemplate, saveTemplate } from "./templates";
 import { getAllSessions, getSession, saveSession } from "./sessions";
 import { clearAllData, getBestRecords, saveRecords } from "./records";
@@ -67,6 +77,76 @@ describe("exercise seeding", () => {
     await ensureExercisesSeeded();
     const ex = await getExercise(SEED_EXERCISES[0].id);
     expect(ex?.name).toBe(SEED_EXERCISES[0].name);
+  });
+});
+
+describe("custom exercises", () => {
+  it("produces custom ids with a stable prefix", () => {
+    const id = makeCustomExerciseId();
+    expect(id.startsWith("ex-custom-")).toBe(true);
+    expect(isCustomExercise(id)).toBe(true);
+    expect(isCustomExercise(SEED_EXERCISES[0].id)).toBe(false);
+  });
+
+  it("persists, reads, updates and deletes a custom exercise", async () => {
+    const ex = newCustomExercise({
+      name: "Deficit Push Up",
+      muscleGroup: "Chest",
+      secondaryMuscles: ["Triceps", "Core"],
+      equipment: "Bodyweight",
+      type: "Compound",
+      instructions: "Feet elevated, hands on plates.",
+    });
+    await saveCustomExercise(ex);
+    expect(await getExercise(ex.id)).toMatchObject({ name: "Deficit Push Up" });
+
+    await saveCustomExercise({ ...ex, name: "Deficit Push Up (Feet Elevated)" });
+    expect((await getExercise(ex.id))?.name).toBe(
+      "Deficit Push Up (Feet Elevated)",
+    );
+
+    await deleteExercise(ex.id);
+    expect(await getExercise(ex.id)).toBeUndefined();
+  });
+
+  it("reports when an exercise is referenced by templates or sessions", async () => {
+    const ex = newCustomExercise({
+      name: "Sled Push",
+      muscleGroup: "Legs",
+      secondaryMuscles: [],
+      equipment: "Machine",
+      type: "Compound",
+      instructions: "Push the sled with max intent.",
+    });
+    await saveCustomExercise(ex);
+    expect(await exerciseInUse(ex.id)).toBe(false);
+
+    const t = makeTemplate({
+      exercises: [
+        { exerciseId: ex.id, name: ex.name, sets: [{ targetReps: 8, targetWeight: 40, restSec: 90 }] },
+      ],
+    });
+    await saveTemplate(t);
+    expect(await exerciseInUse(ex.id)).toBe(true);
+    await deleteTemplate(t.id);
+
+    await saveSession(makeSession({ exercises: [{ exerciseId: ex.id, name: ex.name, restSec: 60, targetSets: 1, sets: [{ weight: 40, reps: 8, completedAt: Date.now() }] }] }));
+    expect(await exerciseInUse(ex.id)).toBe(true);
+  });
+
+  it("keeps custom exercises out of the seeded list only when db is empty", async () => {
+    await ensureExercisesSeeded();
+    const ex = newCustomExercise({
+      name: "Lunges With Band",
+      muscleGroup: "Legs",
+      secondaryMuscles: ["Glutes"],
+      equipment: "Resistance Band",
+      type: "Compound",
+      instructions: "Step forward and lower the knee.",
+    });
+    await saveCustomExercise(ex);
+    const all = await getAllExercises();
+    expect(all.some((e) => e.id === ex.id)).toBe(true);
   });
 });
 

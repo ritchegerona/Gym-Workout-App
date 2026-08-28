@@ -7,6 +7,8 @@ import type {
   WorkoutTemplate,
 } from "../types";
 
+export type RestReason = "set" | "round";
+
 interface ActiveWorkoutState {
   sessionId: string | null;
   templateId: string | null;
@@ -16,6 +18,7 @@ interface ActiveWorkoutState {
   /** Rest timer: absolute end timestamp so it survives reloads/navigation. */
   restEndsAt: number | null;
   restDurationSec: number;
+  restReason: RestReason;
 
   startFromTemplate: (t: WorkoutTemplate, restSec?: number) => void;
   startEmpty: (restSec?: number) => void;
@@ -23,6 +26,7 @@ interface ActiveWorkoutState {
     items: { exerciseId: string; name: string; config: TemplateSetConfig }[],
   ) => void;
   removeExercise: (exerciseId: string) => void;
+  swapExercise: (exIdx: number, exerciseId: string, name: string) => void;
   moveExercise: (index: number, direction: -1 | 1) => void;
 
   updateSet: (exIdx: number, setIdx: number, patch: Partial<SetRecord>) => void;
@@ -32,7 +36,7 @@ interface ActiveWorkoutState {
   removeSet: (exIdx: number, setIdx: number) => void;
   setRestForExercise: (exIdx: number, restSec: number) => void;
 
-  startRest: (sec: number) => void;
+  startRest: (sec: number, reason?: RestReason) => void;
   extendRest: (sec: number) => void;
   skipRest: () => void;
 
@@ -62,6 +66,7 @@ export const useActiveWorkout = create<ActiveWorkoutState>()(
       exercises: [],
       restEndsAt: null,
       restDurationSec: 0,
+      restReason: "set",
 
       startFromTemplate: (t, restSec) => {
         const now = Date.now();
@@ -75,10 +80,12 @@ export const useActiveWorkout = create<ActiveWorkoutState>()(
             name: e.name,
             restSec: e.sets[0]?.restSec ?? restSec ?? 90,
             targetSets: e.sets.length,
+            supersetGroup: e.supersetGroup ?? null,
             sets: setsFromTemplate(e.sets),
           })),
           restEndsAt: null,
           restDurationSec: 0,
+          restReason: "set",
         });
       },
 
@@ -94,6 +101,7 @@ export const useActiveWorkout = create<ActiveWorkoutState>()(
           exercises: [],
           restEndsAt: null,
           restDurationSec: 0,
+          restReason: "set",
         });
       },
 
@@ -114,6 +122,13 @@ export const useActiveWorkout = create<ActiveWorkoutState>()(
       removeExercise: (exerciseId) =>
         set((s) => ({
           exercises: s.exercises.filter((e) => e.exerciseId !== exerciseId),
+        })),
+
+      swapExercise: (exIdx, exerciseId, name) =>
+        set((s) => ({
+          exercises: s.exercises.map((ex, i) =>
+            i === exIdx ? { ...ex, exerciseId, name } : ex,
+          ),
         })),
 
       moveExercise: (index, direction) =>
@@ -232,8 +247,12 @@ export const useActiveWorkout = create<ActiveWorkoutState>()(
           ),
         })),
 
-      startRest: (sec) =>
-        set({ restEndsAt: Date.now() + sec * 1000, restDurationSec: sec }),
+      startRest: (sec, reason) =>
+        set({
+          restEndsAt: Date.now() + sec * 1000,
+          restDurationSec: sec,
+          restReason: reason ?? "set",
+        }),
 
       extendRest: (sec) =>
         set((s) => ({
@@ -255,6 +274,7 @@ export const useActiveWorkout = create<ActiveWorkoutState>()(
           exercises: [],
           restEndsAt: null,
           restDurationSec: 0,
+          restReason: "set",
         }),
     }),
     { name: "irontrack-active-workout" },

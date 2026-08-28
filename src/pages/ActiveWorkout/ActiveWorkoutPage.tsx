@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  ArrowLeftRight,
   Check,
   ChevronDown,
   Dumbbell,
   Flag,
   History as HistoryIcon,
+  Link2,
   Plus,
+  StickyNote,
   Timer as TimerIcon,
   Trash2,
   X,
@@ -32,6 +35,13 @@ import { formatWeight, kgToDisplay } from "../../utils/units";
 import {
   platesLabelForKg,
 } from "../../utils/plates";
+import {
+  buildSupersetBlocks,
+  currentRound,
+  groupRestSec,
+  isRoundComplete,
+  totalRounds,
+} from "../../utils/supersets";
 import type { SetRecord } from "../../types";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
@@ -60,6 +70,7 @@ export default function ActiveWorkoutPage() {
   const addSet = useActiveWorkout((s) => s.addSet);
   const removeSet = useActiveWorkout((s) => s.removeSet);
   const removeExercise = useActiveWorkout((s) => s.removeExercise);
+  const swapExercise = useActiveWorkout((s) => s.swapExercise);
   const moveExercise = useActiveWorkout((s) => s.moveExercise);
   const setRestForExercise = useActiveWorkout((s) => s.setRestForExercise);
   const discardWorkout = useActiveWorkout((s) => s.discardWorkout);
@@ -68,6 +79,7 @@ export default function ActiveWorkoutPage() {
   const rest = useRestTimer();
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [swapFor, setSwapFor] = useState<number | null>(null);
   const [finishOpen, setFinishOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -203,7 +215,25 @@ export default function ActiveWorkoutPage() {
       };
     }
 
-    startRest(ex.restSec || 90);
+    startRestAfterComplete(exIdx, setIdx);
+  }
+
+  /** Rest after completion: inside a superset only when the full round is done. */
+  function startRestAfterComplete(exIdx: number, setIdx: number) {
+    const state = useActiveWorkout.getState();
+    const ex = state.exercises[exIdx];
+    if (!ex) return;
+    if (ex.supersetGroup) {
+      if (isRoundComplete(state.exercises, ex.supersetGroup, setIdx)) {
+        startRest(
+          groupRestSec(state.exercises, ex.supersetGroup, ex.restSec || 90),
+          "round",
+        );
+      }
+      // else: direct transition to the next exercise of the round, no rest.
+    } else {
+      startRest(ex.restSec || 90);
+    }
   }
 
   async function handleFinish() {
@@ -237,6 +267,17 @@ export default function ActiveWorkoutPage() {
     }
   }
 
+  const blocks = useMemo(
+    () =>
+      buildSupersetBlocks(
+        exercises.map((ex, i) => ({
+          supersetGroup: ex.supersetGroup ?? null,
+          index: i,
+        })),
+      ),
+    [exercises],
+  );
+
   const hasAnyCompleted = totals.setsDone > 0;
 
   return (
@@ -269,29 +310,77 @@ export default function ActiveWorkoutPage() {
         </p>
       ) : (
         <ul className="space-y-4" aria-label="Exercises in this workout">
-          {exercises.map((ex, exIdx) => (
-            <li key={`${ex.exerciseId}-${exIdx}`}>
-              <ExerciseCard
-                key={`${ex.exerciseId}-${exIdx}-${ex.sets.length}`}
-                index={exIdx}
-                unit={unit}
-                name={ex.name}
-                isBarbell={equipmentMap.get(ex.exerciseId) === "Barbell"}
-                restSec={ex.restSec}
-                sets={ex.sets}
-                prevPerformance={prevPerfRef.current.get(ex.exerciseId)}
-                historyLoaded={loadedHistory}
-                onMove={(dir) => moveExercise(exIdx, dir)}
-                onRemove={() => removeExercise(ex.exerciseId)}
-                onSetRest={(sec) => setRestForExercise(exIdx, sec)}
-                onUpdate={(setIdx, patch) => updateSet(exIdx, setIdx, patch)}
-                onComplete={(setIdx, set) => handleComplete(exIdx, setIdx, set)}
-                onUncomplete={(setIdx) => uncompleteSet(exIdx, setIdx)}
-                onAddSet={() => addSet(exIdx)}
-                onRemoveSet={(setIdx) => removeSet(exIdx, setIdx)}
-              />
-            </li>
-          ))}
+          {blocks.map((block, blockIdx) => {
+            if (block.group === null) {
+              const index = block.items[0].item.index;
+              const ex = exercises[index];
+              return (
+                <li key={`${ex.exerciseId}-${index}`}>
+                  <ExerciseCard
+                    key={`${ex.exerciseId}-${index}-${ex.sets.length}`}
+                    index={index}
+                    letter="A"
+                    blockCount={1}
+                    unit={unit}
+                    name={ex.name}
+                    isBarbell={equipmentMap.get(ex.exerciseId) === "Barbell"}
+                    restSec={ex.restSec}
+                    sets={ex.sets}
+                    prevPerformance={prevPerfRef.current.get(ex.exerciseId)}
+                    historyLoaded={loadedHistory}
+                    onMove={(dir) => moveExercise(index, dir)}
+                    onRemove={() => removeExercise(ex.exerciseId)}
+                    onSwap={() => setSwapFor(index)}
+                    onSetRest={(sec) => setRestForExercise(index, sec)}
+                    onUpdate={(setIdx, patch) => updateSet(index, setIdx, patch)}
+                    onComplete={(setIdx, set) => handleComplete(index, setIdx, set)}
+                    onUncomplete={(setIdx) => uncompleteSet(index, setIdx)}
+                    onAddSet={() => addSet(index)}
+                    onRemoveSet={(setIdx) => removeSet(index, setIdx)}
+                  />
+                </li>
+              );
+            }
+
+            const groupExercises = block.items.map((b) => exercises[b.item.index]);
+            return (
+              <li key={`group-${block.group}-${blockIdx}`}>
+                <SupersetPanel
+                  round={currentRound(groupExercises)}
+                  total={totalRounds(groupExercises)}
+                >
+                  {block.items.map(({ item, letter }) => {
+                    const index = item.index;
+                    const ex = exercises[index];
+                    return (
+                      <ExerciseCard
+                        key={`${ex.exerciseId}-${index}-${ex.sets.length}`}
+                        index={index}
+                        letter={letter}
+                        blockCount={block.items.length}
+                        unit={unit}
+                        name={ex.name}
+                        isBarbell={equipmentMap.get(ex.exerciseId) === "Barbell"}
+                        restSec={ex.restSec}
+                        sets={ex.sets}
+                        prevPerformance={prevPerfRef.current.get(ex.exerciseId)}
+                        historyLoaded={loadedHistory}
+                        onMove={(dir) => moveExercise(index, dir)}
+                        onRemove={() => removeExercise(ex.exerciseId)}
+                        onSwap={() => setSwapFor(index)}
+                        onSetRest={(sec) => setRestForExercise(index, sec)}
+                        onUpdate={(setIdx, patch) => updateSet(index, setIdx, patch)}
+                        onComplete={(setIdx, set) => handleComplete(index, setIdx, set)}
+                        onUncomplete={(setIdx) => uncompleteSet(index, setIdx)}
+                        onAddSet={() => addSet(index)}
+                        onRemoveSet={(setIdx) => removeSet(index, setIdx)}
+                      />
+                    );
+                  })}
+                </SupersetPanel>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -317,6 +406,23 @@ export default function ActiveWorkoutPage() {
             })),
           );
           setPickerOpen(false);
+        }}
+      />
+
+      {/* Mid-workout swap keeps recorded sets, only the exercise identity changes */}
+      <ExercisePickerDialog
+        open={swapFor !== null}
+        onClose={() => setSwapFor(null)}
+        single
+        confirmLabel="Swap"
+        excludeIds={exercises.map((e) => e.exerciseId)}
+        onConfirm={(selected) => {
+          const ex = selected[0];
+          if (ex && swapFor !== null) {
+            swapExercise(swapFor, ex.id, ex.name);
+            toast("success", `Swapped to ${ex.name} — sets kept`);
+          }
+          setSwapFor(null);
         }}
       />
 
@@ -425,6 +531,8 @@ function SummaryStat({ label, value }: { label: string; value: React.ReactNode }
 
 function RestTimerPanel() {
   const rest = useRestTimer();
+  const restReason = useActiveWorkout((s) => s.restReason);
+  const isRound = restReason === "round";
   const progress =
     rest.durationSec > 0
       ? 1 - rest.remainingMs / (rest.durationSec * 1000)
@@ -432,12 +540,18 @@ function RestTimerPanel() {
 
   return (
     <section
-      aria-label="Rest timer"
+      aria-label={isRound ? "Round rest timer" : "Rest timer"}
       className="mb-4 rounded-2xl border border-primary/40 bg-primary/[0.07] p-4 shadow-sm"
     >
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <TimerIcon size={14} aria-hidden="true" /> Rest
+          <TimerIcon size={14} aria-hidden="true" />
+          {isRound ? <>Round Rest</> : <>Rest</>}
+          {isRound && (
+            <span className="hidden items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 font-semibold text-primary sm:inline-flex">
+              <Link2 size={12} aria-hidden="true" /> Superset round done
+            </span>
+          )}
         </span>
         <button
           onClick={rest.skip}
@@ -478,10 +592,40 @@ function RestTimerPanel() {
   );
 }
 
+/** Wrapper that highlights a superset block and its round progress. */
+function SupersetPanel({
+  round,
+  total,
+  children,
+}: {
+  round: number;
+  total: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between rounded-xl border border-dashed border-primary/40 bg-primary/[0.05] px-3 py-2">
+        <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <Link2 size={14} className="text-primary" aria-hidden="true" />
+          Superset
+        </span>
+        <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+          Round <span className="font-bold text-foreground">{round}</span> / {total}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 /* ---------------- Exercise card ---------------- */
 
 interface ExerciseCardProps {
   index: number;
+  /** "A".."Z" superset letter; "A" for standalone exercises. */
+  letter: string;
+  /** 1 when not part of a superset. */
+  blockCount: number;
   unit: "kg" | "lb";
   name: string;
   isBarbell?: boolean;
@@ -491,6 +635,7 @@ interface ExerciseCardProps {
   historyLoaded: boolean;
   onMove: (dir: -1 | 1) => void;
   onRemove: () => void;
+  onSwap: () => void;
   onSetRest: (sec: number) => void;
   onUpdate: (setIdx: number, patch: Partial<SetRecord>) => void;
   onComplete: (setIdx: number, set: SetRecord) => void;
@@ -501,6 +646,8 @@ interface ExerciseCardProps {
 
 function ExerciseCard({
   index,
+  letter,
+  blockCount,
   unit,
   name,
   isBarbell,
@@ -513,8 +660,10 @@ function ExerciseCard({
   onUncomplete,
   onAddSet,
   onRemoveSet,
+  onSwap,
 }: ExerciseCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [noteFor, setNoteFor] = useState<number | null>(null);
   const allDone = sets.length > 0 && sets.every((s) => s.completedAt > 0);
 
   return (
@@ -527,8 +676,18 @@ function ExerciseCard({
     >
       <header className="flex items-center justify-between gap-2 px-4 pb-2 pt-3.5">
         <h2 className="min-w-0 truncate font-semibold">
-          <span className="mr-1.5 text-muted-foreground">{index + 1}.</span>
+          <span className="font-mono text-muted-foreground">
+            {blockCount > 1 ? `${letter}.` : `${index + 1}.`}
+          </span>{" "}
           {name}
+          {blockCount > 1 && (
+            <>
+              {" "}
+              <span className="text-xs font-medium text-muted-foreground">
+                (Superset {letter})
+              </span>
+            </>
+          )}
         </h2>
         <div className="relative flex shrink-0 items-center gap-1">
           {!allDone && (
@@ -560,6 +719,14 @@ function ExerciseCard({
                 onClick={() => {
                   setMenuOpen(false);
                   onAddSet();
+                }}
+              />
+              <MenuRow
+                icon={ArrowLeftRight}
+                label="Swap exercise"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onSwap();
                 }}
               />
               {sets.length > 1 && (
@@ -597,20 +764,21 @@ function ExerciseCard({
       {/* Set rows */}
       <div className="px-2 pb-2">
         <div
-          className="grid grid-cols-[26px_1fr_72px_60px_52px] items-end gap-1.5 px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+          className="grid grid-cols-[26px_1fr_66px_52px_42px_50px] items-end gap-1 px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
           aria-hidden="true"
         >
           <span>Set</span>
           <span className="text-center">Previous</span>
           <span className="text-center">Wt ({unit})</span>
           <span className="text-center">Reps</span>
+          <span className="text-center">RPE / note</span>
           <span className="sr-only">Done</span>
         </div>
         <ol className="space-y-1.5">
           {sets.map((set, i) => (
             <li
               key={i}
-              className="grid grid-cols-[26px_1fr_72px_60px_52px] items-stretch gap-1.5"
+              className="grid grid-cols-[26px_1fr_66px_52px_42px_50px] items-stretch gap-1"
             >
               <span className="flex items-center justify-center font-mono text-sm font-bold text-muted-foreground">
                 {i + 1}
@@ -631,6 +799,11 @@ function ExerciseCard({
                 disabled={set.completedAt > 0}
                 ariaLabel={`Reps for set ${i + 1}`}
                 onChange={(v) => onUpdate(i, { reps: v })}
+              />
+              <SetNoteButton
+                rpe={set.rpe}
+                note={set.note}
+                onOpen={() => setNoteFor(i)}
               />
               <CompleteButton
                 completed={set.completedAt > 0}
@@ -666,6 +839,19 @@ function ExerciseCard({
           <Plus size={14} aria-hidden="true" /> Add Set
         </Button>
       </footer>
+
+      {noteFor !== null && sets[noteFor] && (
+        <SetEditDialog
+          open
+          onClose={() => setNoteFor(null)}
+          setLabel={`Set ${noteFor + 1}`}
+          exerciseName={name}
+          unit={unit}
+          rpe={sets[noteFor].rpe ?? null}
+          note={sets[noteFor].note ?? ""}
+          onSave={(patch) => onUpdate(noteFor, patch)}
+        />
+      )}
     </section>
   );
 }
@@ -793,5 +979,141 @@ function CompleteButton({
     >
       {completed ? <Check size={22} strokeWidth={3} aria-hidden="true" /> : <Check size={22} strokeWidth={2.5} aria-hidden="true" />}
     </button>
+  );
+}
+
+function SetNoteButton({
+  rpe,
+  note,
+  onOpen,
+}: {
+  rpe?: number | null;
+  note?: string;
+  onOpen: () => void;
+}) {
+  const has = !!rpe || !!note?.trim();
+  return (
+    <button
+      onClick={onOpen}
+      aria-label={has ? "Edit RPE and note" : "Add RPE or note"}
+      aria-pressed={has}
+      className={cn(
+        "flex h-12 items-center justify-center rounded-xl border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        has
+          ? "border-primary bg-primary/15 text-primary"
+          : "border-input text-muted-foreground hover:bg-muted",
+      )}
+    >
+      <StickyNote size={16} aria-hidden="true" />
+    </button>
+  );
+}
+
+function SetEditDialog({
+  open,
+  onClose,
+  setLabel,
+  exerciseName,
+  unit,
+  rpe,
+  note,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  setLabel: string;
+  exerciseName: string;
+  unit: "kg" | "lb";
+  rpe?: number | null;
+  note?: string;
+  onSave: (patch: Partial<SetRecord>) => void;
+}) {
+  const [rpeValue, setRpeValue] = useState<number | null>(rpe ?? null);
+  const [noteValue, setNoteValue] = useState(note ?? "");
+
+  useEffect(() => {
+    if (!open) return;
+    setRpeValue(rpe ?? null);
+    setNoteValue(note ?? "");
+  }, [open, rpe, note]);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={`${setLabel} — ${exerciseName}`}
+      footer={
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            className="flex-1"
+            onClick={() => {
+              onSave({ rpe: null, note: "" });
+              onClose();
+            }}
+          >
+            Clear
+          </Button>
+          <Button
+            className="flex-1"
+            onClick={() => {
+              onSave({
+                rpe:
+                  rpeValue === null
+                    ? undefined
+                    : Math.min(10, Math.max(1, rpeValue)),
+                note: noteValue.trim(),
+              });
+              onClose();
+            }}
+          >
+            Save
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4 text-sm">
+        <div className="space-y-1.5">
+          <span className="block font-medium">RPE (Rating of Perceived Effort)</span>
+          <div
+            role="radiogroup"
+            aria-label="RPE"
+            className="flex flex-wrap gap-1.5"
+          >
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                role="radio"
+                aria-checked={rpeValue === n}
+                onClick={() => setRpeValue(rpeValue === n ? null : n)}
+                className={cn(
+                  "h-11 w-11 rounded-xl border text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-ring",
+                  rpeValue === n
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-border text-muted-foreground hover:bg-muted",
+                )}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            1 = very easy · 10 = maximal effort. Uses {unit} units on record.
+          </p>
+        </div>
+        <label className="block space-y-1.5">
+          <span className="block font-medium">Note</span>
+          <textarea
+            value={noteValue}
+            onChange={(e) => setNoteValue(e.target.value)}
+            rows={2}
+            maxLength={120}
+            placeholder="e.g. beltless, paused, feel good"
+            aria-label="Set note"
+            className="w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-base placeholder:text-muted-foreground focus:border-primary focus:outline-2 focus:outline-ring"
+          />
+        </label>
+      </div>
+    </Dialog>
   );
 }

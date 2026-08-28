@@ -151,4 +151,41 @@ describe("active workout store", () => {
     expect(state.exercises).toHaveLength(0);
     expect(state.restEndsAt).toBeNull();
   });
+
+  it("carries superset groups from a template into the active session", () => {
+    const t: WorkoutTemplate = {
+      id: "t2",
+      name: "Superset Day",
+      favorite: false,
+      createdAt: Date.now(),
+      lastPerformedAt: null,
+      exercises: [
+        { exerciseId: "ex-a", name: "A", supersetGroup: "g1", sets: [{ targetReps: 8, targetWeight: 20, restSec: 60 }] },
+        { exerciseId: "ex-b", name: "B", supersetGroup: "g1", sets: [{ targetReps: 8, targetWeight: 20, restSec: 60 }] },
+      ],
+    };
+    useActiveWorkout.getState().startFromTemplate(t);
+    const state = useActiveWorkout.getState();
+    expect(state.exercises.map((e) => e.supersetGroup)).toEqual(["g1", "g1"]);
+  });
+
+  it("swaps an exercise but keeps its recorded sets", () => {
+    const s = useActiveWorkout.getState();
+    s.startFromTemplate(template());
+    s.completeSet(0, 0, 62.5, 8);
+    s.swapExercise(0, "ex-incline", "Incline Bench Press");
+    const state = useActiveWorkout.getState();
+    expect(state.exercises[0].exerciseId).toBe("ex-incline");
+    expect(state.exercises[0].name).toBe("Incline Bench Press");
+    expect(state.exercises[0].sets[0]).toMatchObject({ weight: 62.5, reps: 8 });
+    expect(state.exercises[0].sets[0].completedAt).toBeGreaterThan(0);
+  });
+
+  it("records rest reason for round rest so the timer can label it", () => {
+    useActiveWorkout.getState().startRest(120, "round");
+    expect(useActiveWorkout.getState().restReason).toBe("round");
+    useActiveWorkout.getState().skipRest();
+    useActiveWorkout.getState().startRest(90);
+    expect(useActiveWorkout.getState().restReason).toBe("set");
+  });
 });

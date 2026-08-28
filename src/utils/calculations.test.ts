@@ -6,8 +6,9 @@ import {
   totalSessionVolume,
   countCompletedSets,
   detectSetPRs,
+  suggestRestSec,
 } from "./calculations";
-import type { SetRecord } from "../types";
+import type { Exercise, SetRecord } from "../types";
 
 describe("setVolume", () => {
   it("multiplies weight by reps", () => {
@@ -70,5 +71,29 @@ describe("detectSetPRs", () => {
     // e1rm: 80*(1+9/30)=104 > 92; volume 720 > 400; weight not beaten
     const prs = detectSetPRs({ weight: 80, reps: 9, completedAt: 1 }, prev.weight, prev.oneRm, prev.setVol);
     expect(prs.map((p) => p.type).sort()).toEqual(["best-1rm", "best-set-volume"]);
+  });
+});
+
+describe("suggestRestSec", () => {
+  const ex = (over: Partial<Exercise>): Pick<Exercise, "type" | "equipment" | "muscleGroup"> => ({
+    type: "Compound",
+    equipment: "Machine",
+    muscleGroup: "Chest",
+    ...over,
+  });
+  it("gives barbell compounds the longest rest", () => {
+    expect(suggestRestSec(ex({ type: "Compound", equipment: "Barbell", muscleGroup: "Legs" }))).toBe(150);
+  });
+  it("keeps other compounds at 120s", () => {
+    expect(suggestRestSec(ex({ type: "Compound", equipment: "Machine", muscleGroup: "Back" }))).toBe(120);
+  });
+  it("treats legs/glutes as priority even for isolation", () => {
+    expect(suggestRestSec(ex({ type: "Isolation", equipment: "Machine", muscleGroup: "Legs" }))).toBe(120);
+  });
+  it("gives calves and core the shortest rest", () => {
+    expect(suggestRestSec(ex({ type: "Isolation", equipment: "Bodyweight", muscleGroup: "Calves" }))).toBe(60);
+  });
+  it("defaults upper-body isolation to 90s", () => {
+    expect(suggestRestSec(ex({ type: "Isolation", equipment: "Dumbbell", muscleGroup: "Biceps" }))).toBe(90);
   });
 });

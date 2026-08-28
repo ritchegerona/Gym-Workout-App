@@ -8,6 +8,7 @@ beforeEach(() => {
     unit: "kg",
     theme: "system",
     defaultRestSec: 90,
+    smartRestDefaults: true,
     soundEnabled: true,
     vibrationEnabled: true,
     notificationsEnabled: false,
@@ -42,5 +43,32 @@ describe("settings store", () => {
   it("sets default rest from presets", () => {
     useSettings.getState().setDefaultRest(180);
     expect(useSettings.getState().defaultRestSec).toBe(180);
+  });
+
+  it("toggles smart rest defaults", () => {
+    useSettings.getState().setSmartRestDefaults(false);
+    expect(useSettings.getState().smartRestDefaults).toBe(false);
+  });
+
+  it("logs a dated body-weight entry and updates current weight", () => {
+    const s = useSettings.getState();
+    s.logBodyWeight(88, 5000);
+    s.logBodyWeight(87.5, 9000);
+    const p = useSettings.getState().profile;
+    expect(p.bodyWeightKg).toBe(87.5);
+    expect(p.bodyWeightLog).toHaveLength(2);
+    expect(p.bodyWeightLog![0]).toMatchObject({ weightKg: 88, date: 5000 });
+    expect(p.bodyWeightLog![1]).toMatchObject({ weightKg: 87.5, date: 9000 });
+  });
+
+  it("removes a body-weight entry by id without touching the rest", () => {
+    const s = useSettings.getState();
+    s.logBodyWeight(88, 1);
+    s.logBodyWeight(87, 2);
+    const id = useSettings.getState().profile.bodyWeightLog![0].id;
+    useSettings.getState().removeBodyWeightEntry(id);
+    const log = useSettings.getState().profile.bodyWeightLog!;
+    expect(log).toHaveLength(1);
+    expect(log[0].weightKg).toBe(87);
   });
 });

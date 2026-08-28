@@ -1,4 +1,9 @@
-import type { WorkoutSession, PersonalRecord } from "../types";
+import type {
+  Exercise,
+  MuscleGroup,
+  PersonalRecord,
+  WorkoutSession,
+} from "../types";
 import { exerciseVolume } from "../utils/calculations";
 import { startOfWeek } from "../utils/format";
 
@@ -111,4 +116,59 @@ export function latestPRs(records: PersonalRecord[], limit = 5): PersonalRecord[
   return [...records]
     .sort((a, b) => b.date - a.date)
     .slice(0, limit);
+}
+
+/** Number of primary muscle groups to surface in the volume chart. */
+export const VOLUME_CHART_GROUP_LIMIT = 6;
+
+export interface MuscleVolumePoint {
+  weekStart: number;
+  [muscle: string]: number;
+}
+
+/**
+ * Weekly volume (kg) broken down by primary muscle group for the last N weeks.
+ * Only the highest-volume groups are included; unknown/custom-but-missing
+ * exercises are skipped since we can't attribute them to a group.
+ */
+export function muscleVolumePerWeek(
+  sessions: WorkoutSession[],
+  exerciseById: Map<string, Exercise>,
+  weeks = 8,
+): MuscleVolumePoint[] {
+  const now = new Date();
+  const slots = new Map<number, Map<MuscleGroup, number>>();
+  const totals = new Map<MuscleGroup, number>();
+
+  for (let i = weeks - 1; i >= 0; i--) {
+    const ws = startOfWeek(now);
+    ws.setDate(ws.getDate() - i * 7);
+    slots.set(ws.getTime(), new Map());
+  }
+
+  for (const s of sessions) {
+    const slot = slots.get(startOfWeek(new Date(s.startedAt)).getTime());
+    if (!slot) continue;
+    for (const ex of s.exercises) {
+      const def = exerciseById.get(ex.exerciseId);
+      if (!def) continue;
+      const vol = exerciseVolume(ex.sets);
+      if (vol <= 0) continue;
+      slot.set(def.muscleGroup, (slot.get(def.muscleGroup) ?? 0) + vol);
+      totals.set(def.muscleGroup, (totals.get(def.muscleGroup) ?? 0) + vol);
+    }
+  }
+
+  const groups = [...totals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, VOLUME_CHART_GROUP_LIMIT)
+    .map(([g]) => g);
+
+  return [...slots.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([weekStart, slot]) => {
+      const row: MuscleVolumePoint = { weekStart };
+      for (const g of groups) row[g] = Math.round(slot.get(g) ?? 0);
+      return row;
+    });
 }
