@@ -68,7 +68,25 @@ function getDB(): Promise<IDBPDatabase<GymDB>> {
 }
 
 export function uid(): string {
-  return crypto.randomUUID();
+  // crypto.randomUUID is iOS Safari 15.4+; fall back for older iOS/WebKit
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    const b = new Uint8Array(16);
+    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+      crypto.getRandomValues(b);
+    } else {
+      for (let i = 0; i < b.length; i++) b[i] = Math.floor(Math.random() * 256);
+    }
+    // RFC4122 v4
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const hex = Array.from(b, (x) => x.toString(16).padStart(2, "0"));
+    return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+  } catch {
+    return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
 }
 
 export { getDB };

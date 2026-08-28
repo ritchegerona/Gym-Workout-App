@@ -21,6 +21,15 @@ export default defineConfig({
       name: "mobile-chromium",
       use: { ...devices["Pixel 7"] },
     },
+    // iPhone 8–17 bracket (Safari/WebKit): smallest+oldest supported, largest+newest
+    {
+      name: "webkit-iphone8",
+      use: { ...devices["iPhone 8"] },
+    },
+    {
+      name: "webkit-iphone17-promax",
+      use: { ...devices["iPhone 17 Pro Max"] },
+    },
   ],
   webServer: {
     command: "npm run build && npm run preview -- --port 4173 --strictPort",

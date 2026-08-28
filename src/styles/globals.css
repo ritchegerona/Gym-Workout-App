@@ -96,6 +96,13 @@ input[type="number"] {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* dvh is iOS 15.4+; fall back to vh on older iOS (iPhone 8 on iOS 15.0-15.3) */
+@supports not (height: 100dvh) {
+  .min-h-dvh {
+    min-height: 100vh;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -15,6 +15,7 @@ import { deleteTemplate, getAllTemplates, getTemplate, saveTemplate } from "./te
 import { getAllSessions, getSession, saveSession } from "./sessions";
 import { deleteCardioEntry, getAllCardio, saveCardioEntry } from "./cardio";
 import { clearAllData, getBestRecords, saveRecords } from "./records";
+import { uid } from "./db";
 import type { WorkoutTemplate, WorkoutSession, PersonalRecord, CardioEntry } from "../types";
 
 function makeTemplate(overrides: Partial<WorkoutTemplate> = {}): WorkoutTemplate {
@@ -220,6 +221,33 @@ describe("cardio persistence", () => {
 
     await deleteCardioEntry(a.id);
     expect((await getAllCardio()).map((c) => c.id)).toEqual([b.id]);
+  });
+});
+
+describe("uid", () => {
+  it("returns unique RFC4122 v4 ids", () => {
+    const a = uid();
+    const b = uid();
+    expect(a).not.toBe(b);
+    expect(a).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+  });
+
+  it("falls back gracefully when crypto.randomUUID is unavailable", () => {
+    const original = crypto.randomUUID;
+    // Simulate old iOS Safari (<15.4)
+    Object.defineProperty(crypto, "randomUUID", { value: undefined, configurable: true });
+    try {
+      const a = uid();
+      const b = uid();
+      expect(a).not.toBe(b);
+      expect(a).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", { value: original, configurable: true });
+    }
   });
 });
 
