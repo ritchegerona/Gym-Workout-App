@@ -55,5 +55,6 @@ export async function clearAllData(): Promise<void> {
     db.clear("templates"),
     db.clear("sessions"),
     db.clear("records"),
+    db.clear("cardioEntries"),
   ]);
 }

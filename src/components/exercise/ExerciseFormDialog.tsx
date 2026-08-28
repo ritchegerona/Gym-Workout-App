@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EQUIPMENT_TYPES, MUSCLE_GROUPS } from "../../data/exercises";
 import { cn } from "../../lib/utils";
+import { useRadiogroupArrows } from "../../hooks/useRadiogroupArrows";
 import type {
   Equipment,
   Exercise,
@@ -34,6 +35,8 @@ export function ExerciseFormDialog({
   const [type, setType] = useState<ExerciseType>("Compound");
   const [instructions, setInstructions] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const typeRef = useRef<HTMLDivElement>(null);
+  useRadiogroupArrows(typeRef);
 
   useEffect(() => {
     if (!open) return;
@@ -145,6 +148,7 @@ export function ExerciseFormDialog({
         <label className="block space-y-1.5">
           <span className="text-sm font-medium">Type</span>
           <div
+            ref={typeRef}
             role="radiogroup"
             aria-label="Exercise type"
             className="flex gap-2"

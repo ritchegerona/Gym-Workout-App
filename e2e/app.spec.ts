@@ -1,8 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /** Seed an onboarded, ready-to-use settings store before the app boots. */
-async function seedOnboarded(page: Page) {
-  await page.addInitScript(() => {
+async function seedState(page: Page, extraState: Record<string, unknown> = {}) {
+  await page.addInitScript((extra) => {
     localStorage.setItem(
       "irontrack-settings",
       JSON.stringify({
@@ -22,11 +22,28 @@ async function seedOnboarded(page: Page) {
             bodyWeightKg: null,
             goal: null,
           },
+          ...extra,
         },
         version: 0,
       }),
     );
-  });
+  }, extraState);
+}
+
+async function seedOnboarded(page: Page) {
+  await seedState(page);
+}
+
+/** Seed onboarded plus a plan entry for today. */
+async function seedOnboardedWithPlan(
+  page: Page,
+  type: "workout" | "cardio",
+) {
+  const entry =
+    type === "cardio"
+      ? { id: "p-c", day: new Date().getDay(), type: "cardio", refId: null, name: "Run" }
+      : { id: "p-w", day: new Date().getDay(), type: "workout", refId: "t-x", name: "Squat Day" };
+  await seedState(page, { weeklyPlan: [entry] });
 }
 
 test.describe("onboarding", () => {
@@ -110,5 +127,51 @@ test.describe("workout flow", () => {
     // Session appears in history
     await page.goto("/history");
     await expect(page.getByText("Squat Day", { exact: true }).first()).toBeVisible();
+  });
+});
+
+test.describe("planner & keyboard", () => {
+  test("arrow keys navigate the exercise-type radiogroup", async ({
+    page,
+  }) => {
+    await seedOnboarded(page);
+    await page.goto("/exercises");
+
+    const group = page.getByRole("radiogroup", { name: "Type filter" });
+    await group.getByRole("radio", { name: "All" }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(
+      group.getByRole("radio", { name: "Compound" }),
+    ).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("ArrowRight");
+    await expect(
+      group.getByRole("radio", { name: "Isolation" }),
+    ).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("ArrowLeft");
+    await expect(
+      group.getByRole("radio", { name: "Compound" }),
+    ).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("scheduled cardio drives the home card and logs into history", async ({
+    page,
+  }) => {
+    await seedOnboardedWithPlan(page, "cardio");
+    await page.goto("/");
+
+    // Home shows the scheduled cardio card
+    await expect(
+      page.getByRole("heading", { name: "Run", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Log Run" }).click();
+
+    // Fill the log dialog and save
+    await page.getByRole("dialog", { name: "Log cardio" }).getByLabel("Duration in minutes").fill("45");
+    await page.getByRole("button", { name: "Log Entry" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // Entry shows up in history
+    await page.goto("/history");
+    await expect(page.getByText("45m 00s").first()).toBeVisible();
   });
 });

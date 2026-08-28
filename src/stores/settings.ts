@@ -7,6 +7,7 @@ import type {
   TrainingGoal,
   UnitSystem,
   UserProfile,
+  WeeklyPlanEntry,
 } from "../types";
 
 export const REST_PRESETS = [30, 60, 90, 120, 180];
@@ -21,6 +22,7 @@ interface SettingsState {
   vibrationEnabled: boolean;
   notificationsEnabled: boolean;
   profile: UserProfile;
+  weeklyPlan: WeeklyPlanEntry[];
   setOnboarded: () => void;
   setUnit: (u: UnitSystem) => void;
   setTheme: (t: ThemeMode) => void;
@@ -32,6 +34,11 @@ interface SettingsState {
   updateProfile: (p: Partial<UserProfile>) => void;
   logBodyWeight: (kg: number, date?: number) => void;
   removeBodyWeightEntry: (id: string) => void;
+  setPlanEntry: (
+    day: number,
+    entry: { type: WeeklyPlanEntry["type"]; refId: string | null; name: string },
+  ) => void;
+  removePlanEntry: (day: number) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -52,6 +59,7 @@ export const useSettings = create<SettingsState>()(
         bodyWeightKg: null,
         goal: null,
       },
+      weeklyPlan: [],
       setOnboarded: () => set({ onboarded: true }),
       setUnit: (unit) => set({ unit }),
       setTheme: (theme) => set({ theme }),
@@ -78,6 +86,23 @@ export const useSettings = create<SettingsState>()(
               (e) => e.id !== id,
             ),
           },
+        })),
+      setPlanEntry: (day, entry) =>
+        set((s) => {
+          const existing = s.weeklyPlan.find((e) => e.day === day);
+          const updated: WeeklyPlanEntry = existing
+            ? { ...existing, type: entry.type, refId: entry.refId, name: entry.name }
+            : { id: uid(), day, ...entry };
+          return {
+            weeklyPlan: [
+              ...s.weeklyPlan.filter((e) => e.day !== day),
+              updated,
+            ],
+          };
+        }),
+      removePlanEntry: (day) =>
+        set((s) => ({
+          weeklyPlan: s.weeklyPlan.filter((e) => e.day !== day),
         })),
     }),
     { name: "irontrack-settings" },

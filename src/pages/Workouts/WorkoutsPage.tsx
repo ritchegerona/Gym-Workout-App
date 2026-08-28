@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  CalendarDays,
   Copy,
   Dumbbell,
   MoreVertical,
@@ -78,10 +79,16 @@ export default function WorkoutsPage() {
             Your reusable workout templates
           </p>
         </div>
-        <Button onClick={() => navigate("/workouts/new")}>
-          <Plus size={18} aria-hidden="true" />
-          <span className="hidden sm:inline">New</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => navigate("/planner")}>
+            <CalendarDays size={18} aria-hidden="true" />
+            <span className="hidden sm:inline">My Week</span>
+          </Button>
+          <Button onClick={() => navigate("/workouts/new")}>
+            <Plus size={18} aria-hidden="true" />
+            <span className="hidden sm:inline">New</span>
+          </Button>
+        </div>
       </div>
 
       {templates.loading ? null : list.length === 0 ? (

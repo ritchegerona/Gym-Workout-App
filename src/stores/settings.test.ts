@@ -13,6 +13,7 @@ beforeEach(() => {
     vibrationEnabled: true,
     notificationsEnabled: false,
     profile: { name: "", age: null, heightCm: null, bodyWeightKg: null, goal: null },
+    weeklyPlan: [],
   });
 });
 
@@ -70,5 +71,30 @@ describe("settings store", () => {
     const log = useSettings.getState().profile.bodyWeightLog!;
     expect(log).toHaveLength(1);
     expect(log[0].weightKg).toBe(87);
+  });
+
+  it("assigns a workout to a day, replaces it, and clears it", () => {
+    const s = useSettings.getState();
+    s.setPlanEntry(1, { type: "workout", refId: "t1", name: "Push Day" });
+    let plan = useSettings.getState().weeklyPlan;
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toMatchObject({ day: 1, type: "workout", name: "Push Day" });
+
+    s.setPlanEntry(1, { type: "cardio", refId: null, name: "Run" });
+    plan = useSettings.getState().weeklyPlan;
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toMatchObject({ day: 1, type: "cardio", name: "Run" });
+
+    s.removePlanEntry(1);
+    expect(useSettings.getState().weeklyPlan).toHaveLength(0);
+  });
+
+  it("keeps different days independent in the plan", () => {
+    const s = useSettings.getState();
+    s.setPlanEntry(2, { type: "workout", refId: "t1", name: "Push" });
+    s.setPlanEntry(4, { type: "workout", refId: "t2", name: "Pull" });
+    expect(useSettings.getState().weeklyPlan).toHaveLength(2);
+    s.removePlanEntry(2);
+    expect(useSettings.getState().weeklyPlan).toMatchObject([{ day: 4 }]);
   });
 });

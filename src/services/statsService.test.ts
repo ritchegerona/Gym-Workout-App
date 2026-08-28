@@ -1,12 +1,32 @@
 import { describe, it, expect } from "vitest";
 import {
+  bodyWeightTrend,
+  cardioThisWeek,
   computeStreak,
   computeWeeklySummary,
   exerciseProgression,
   muscleVolumePerWeek,
   workoutsPerWeek,
 } from "./statsService";
-import type { Exercise, WorkoutSession } from "../types";
+import type { BodyWeightEntry, CardioEntry, Exercise, WorkoutSession } from "../types";
+
+function cardio(daysAgo: number, durationMin: number): CardioEntry {
+  return {
+    id: `c-${daysAgo}-${durationMin}`,
+    activity: "Run",
+    durationMin,
+    distanceKm: 5,
+    date: Date.now() - daysAgo * 86_400_000,
+  };
+}
+
+function bw(daysAgo: number, weightKg: number): BodyWeightEntry {
+  return {
+    id: `bw-${daysAgo}-${weightKg}`,
+    date: Date.now() - daysAgo * 86_400_000,
+    weightKg,
+  };
+}
 
 function session(daysAgo: number, weight = 60, reps = 8): WorkoutSession {
   const start = Date.now() - daysAgo * 86_400_000;
@@ -82,6 +102,46 @@ describe("exerciseProgression", () => {
     empty.exercises[0].sets[0].completedAt = 0;
     const pts = exerciseProgression([other, empty], "ex-bench");
     expect(pts).toHaveLength(0);
+  });
+});
+
+describe("bodyWeightTrend", () => {
+  it("returns chronological points, newest entry per day wins", () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayStart = today.getTime();
+    const points = bodyWeightTrend(
+      [
+        { id: "bw-morning", date: dayStart + 8 * 3_600_000, weightKg: 82 },
+        { id: "bw-evening", date: dayStart + 20 * 3_600_000, weightKg: 81.5 },
+        bw(3, 83),
+      ],
+      4,
+    );
+    expect(points.map((p) => p.weightKg)).toEqual([83, 81.5]);
+    expect(points[0].date).toBeLessThan(points[1].date);
+  });
+
+  it("drops entries older than the window", () => {
+    const points = bodyWeightTrend([bw(0, 82), bw(60, 88)], 4);
+    expect(points).toHaveLength(1);
+    expect(points[0].weightKg).toBe(82);
+  });
+
+  it("returns an empty array for an empty log", () => {
+    expect(bodyWeightTrend([])).toEqual([]);
+  });
+});
+
+describe("cardioThisWeek", () => {
+  it("sums minutes and counts sessions in the current week only", () => {
+    const summary = cardioThisWeek([cardio(0, 30), cardio(1, 45), cardio(10, 60)]);
+    expect(summary.sessions).toBe(2);
+    expect(summary.minutes).toBe(75);
+  });
+
+  it("returns zeros for an empty log", () => {
+    expect(cardioThisWeek([])).toEqual({ sessions: 0, minutes: 0 });
   });
 });
 

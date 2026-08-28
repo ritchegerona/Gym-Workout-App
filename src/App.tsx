@@ -25,6 +25,7 @@ const ExerciseLibraryPage = lazy(
   () => import("./pages/Exercises/ExerciseLibraryPage"),
 );
 const ProgressPage = lazy(() => import("./pages/Progress/ProgressPage"));
+const PlannerPage = lazy(() => import("./pages/Planner/PlannerPage"));
 
 function RecoveryPrompt({ onClose }: { onClose: () => void }) {
   const name = useActiveWorkout((s) => s.name);
@@ -145,6 +146,14 @@ export default function App() {
                 element={
                   <Suspense>
                     <ProgressPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/planner"
+                element={
+                  <Suspense>
+                    <PlannerPage />
                   </Suspense>
                 }
               />

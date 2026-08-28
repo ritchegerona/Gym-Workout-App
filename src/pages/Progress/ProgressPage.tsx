@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -17,6 +17,7 @@ import { getAllRecords } from "../../db/records";
 import { getAllExercises } from "../../db/exercises";
 import { useSettings } from "../../stores/settings";
 import {
+  bodyWeightTrend,
   computeWeeklySummary,
   exerciseProgression,
   muscleVolumePerWeek,
@@ -27,6 +28,7 @@ import { formatWeight, kgToDisplay } from "../../utils/units";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Input } from "../../components/ui/Input";
 import { classifyStrength, formatEstimated1RM, strengthLevelIndex, STRENGTH_STANDARDS } from "../../utils/strengthStandard";
+import { useRadiogroupArrows } from "../../hooks/useRadiogroupArrows";
 import type { Exercise } from "../../types";
 
 const RANGES = [
@@ -46,12 +48,15 @@ const MUSCLE_COLORS = [
 
 export default function ProgressPage() {
   const unit = useSettings((s) => s.unit);
+  const profile = useSettings((s) => s.profile);
   const sessions = useAsync(getFinishedSessions, []);
   const records = useAsync(getAllRecords, []);
   const exercises = useAsync(getAllExercises, []);
 
   const [rangeWeeks, setRangeWeeks] = useState<number>(13);
   const [exerciseId, setExerciseId] = useState<string>("");
+  const rangeRef = useRef<HTMLDivElement>(null);
+  useRadiogroupArrows(rangeRef);
 
   const weekly = useMemo(
     () => computeWeeklySummary(sessions.data ?? []),
@@ -96,6 +101,14 @@ export default function ProgressPage() {
     return exerciseProgression(sessions.data ?? [], selectedExerciseId);
   }, [sessions.data, selectedExerciseId]);
 
+  const bodyWeightData = useMemo(() => {
+    const pts = bodyWeightTrend(profile.bodyWeightLog ?? [], rangeWeeks);
+    return pts.map((p) => ({
+      label: formatDateShort(p.date),
+      value: Math.round(kgToDisplay(p.weightKg, unit) * 10) / 10,
+    }));
+  }, [profile.bodyWeightLog, rangeWeeks, unit]);
+
   const recentPRs = useMemo(
     () => [...(records.data ?? [])].sort((a, b) => b.date - a.date).slice(0, 10),
     [records.data],
@@ -108,6 +121,7 @@ export default function ProgressPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold tracking-tight">Progress</h1>
         <div
+          ref={rangeRef}
           role="radiogroup"
           aria-label="Time range"
           className="flex gap-1 rounded-xl bg-muted p-1"
@@ -229,6 +243,24 @@ export default function ProgressPage() {
               ))}
             </ul>
           </>
+        )}
+      </section>
+
+      {/* Body weight trend */}
+      <section
+        className="rounded-2xl border border-border bg-card p-4 shadow-sm"
+        aria-label="Body weight trend"
+      >
+        <h2 className="mb-1 text-sm font-semibold">Body weight</h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Trend from your logged check-ins.
+        </p>
+        {bodyWeightData.length < 2 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Log your body weight in Profile to see the trend.
+          </p>
+        ) : (
+          <MiniChart title={`Body weight (${unit})`} data={bodyWeightData} />
         )}
       </section>
 

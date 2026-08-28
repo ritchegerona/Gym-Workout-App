@@ -1,4 +1,6 @@
 import type {
+  BodyWeightEntry,
+  CardioEntry,
   Exercise,
   MuscleGroup,
   PersonalRecord,
@@ -116,6 +118,49 @@ export function latestPRs(records: PersonalRecord[], limit = 5): PersonalRecord[
   return [...records]
     .sort((a, b) => b.date - a.date)
     .slice(0, limit);
+}
+
+export interface CardioWeek {
+  sessions: number;
+  minutes: number;
+}
+
+/** Cardio volume for the current week (Mon start). */
+export function cardioThisWeek(cardio: CardioEntry[]): CardioWeek {
+  const weekStart = startOfWeek().getTime();
+  const inWeek = cardio.filter((c) => c.date >= weekStart);
+  return {
+    sessions: inWeek.length,
+    minutes: inWeek.reduce((sum, c) => sum + c.durationMin, 0),
+  };
+}
+
+export interface BodyWeightPoint {
+  date: number;
+  weightKg: number;
+}
+
+/**
+ * Body-weight trend: one point per day (most recent entry wins) within the
+ * last N weeks, sorted oldest → newest.
+ */
+export function bodyWeightTrend(
+  log: BodyWeightEntry[],
+  weeks = 13,
+): BodyWeightPoint[] {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - weeks * 7);
+  const byDay = new Map<number, BodyWeightEntry>();
+  for (const e of log) {
+    if (e.date < cutoff.getTime()) continue;
+    const day = new Date(e.date);
+    day.setHours(0, 0, 0, 0);
+    const cur = byDay.get(day.getTime());
+    if (!cur || e.date >= cur.date) byDay.set(day.getTime(), e);
+  }
+  return [...byDay.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([date, e]) => ({ date, weightKg: e.weightKg }));
 }
 
 /** Number of primary muscle groups to surface in the volume chart. */

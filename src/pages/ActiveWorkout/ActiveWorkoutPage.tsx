@@ -19,6 +19,7 @@ import {
 } from "../../stores/activeWorkout";
 import { useSettings, REST_PRESETS } from "../../stores/settings";
 import { useRestTimer } from "../../hooks/useRestTimer";
+import { useRadiogroupArrows } from "../../hooks/useRadiogroupArrows";
 import { useWakeLock } from "../../hooks/useWakeLock";
 import { getFinishedSessions } from "../../db/sessions";
 import { getBestRecords } from "../../db/records";
@@ -1029,6 +1030,8 @@ function SetEditDialog({
   onSave: (patch: Partial<SetRecord>) => void;
 }) {
   const [rpeValue, setRpeValue] = useState<number | null>(rpe ?? null);
+  const rpeRef = useRef<HTMLDivElement>(null);
+  useRadiogroupArrows(rpeRef);
   const [noteValue, setNoteValue] = useState(note ?? "");
 
   useEffect(() => {
@@ -1076,6 +1079,7 @@ function SetEditDialog({
         <div className="space-y-1.5">
           <span className="block font-medium">RPE (Rating of Perceived Effort)</span>
           <div
+            ref={rpeRef}
             role="radiogroup"
             aria-label="RPE"
             className="flex flex-wrap gap-1.5"

@@ -108,8 +108,44 @@ export interface BodyWeightEntry {
   weightKg: number;
 }
 
+export type CardioActivity =
+  | "Run"
+  | "Walk"
+  | "Cycle"
+  | "Swim"
+  | "Row"
+  | "Stairs"
+  | "Hike"
+  | "Other";
+
+/** A standalone cardio session (minutes + optional distance/calories). */
+export interface CardioEntry {
+  id: string;
+  activity: CardioActivity;
+  durationMin: number;
+  /** Distance in km, omitted for stationary activities. */
+  distanceKm?: number | null;
+  calories?: number | null;
+  notes?: string;
+  /** When the session was logged/finished. */
+  date: number;
+}
+
 export type UnitSystem = "kg" | "lb";
 export type ThemeMode = "light" | "dark" | "system";
+
+export type PlanItemType = "workout" | "cardio";
+
+/** One scheduled item per weekday in the repeating weekly plan. */
+export interface WeeklyPlanEntry {
+  id: string;
+  /** JavaScript getDay(): 0 = Sunday … 6 = Saturday. */
+  day: number;
+  type: PlanItemType;
+  /** Template id for workouts; unused for cardio. */
+  refId: string | null;
+  name: string;
+}
 export type TrainingGoal =
   | "Build Muscle"
   | "Get Stronger"

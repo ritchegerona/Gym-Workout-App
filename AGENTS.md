@@ -29,6 +29,7 @@ src/
 │   ├── ui/          design-system primitives: Button, Card, Input/Select,
 │   │                Dialog (bottom-sheet on mobile, focus trap), Switch/ToggleGroup, Toast, EmptyState
 │   ├── exercise/    ExercisePickerDialog (multi/single modes), ExerciseFormDialog (custom CRUD)
+│   ├── cardio/      CardioLogDialog (log minutes/distance/calories/notes)
 │   ├── layout/      AppLayout (bottom tab bar <md, sidebar ≥md, active banner, skip link)
 │   └── workout/     RestTimerBar (global mini timer)
 ├── stores/
@@ -36,17 +37,20 @@ src/
 │   │                     session; written to localStorage on EVERY mutation (recovery).
 │   │                     Also: restReason ("set"|"round"), swapExercise (keeps recorded sets).
 │   └── settings.ts       zustand + persist ("irontrack-settings") — units, theme, profile,
-│                         bodyWeightLog, feedback toggles, default rest, smart rest defaults,
-│                         logBodyWeight/removeBodyWeightEntry.
+│                         bodyWeightLog, weeklyPlan, feedback toggles, default rest, smart
+│                         rest defaults, logBodyWeight/removeBodyWeightEntry, setPlanEntry/
+│                         removePlanEntry.
 ├── services/        workoutService (finishWorkout = PR detection + persistence),
 │                    statsService (weekly summary, streaks, progression series,
-│                    muscleVolumePerWeek — pure)
-├── db/              idb wrapper: db.ts (schema v1), exercises/templates/sessions/records repos;
-│                    exercises.ts owns custom-exercise helpers (makeCustomExerciseId,
-│                    deleteExercise, exerciseInUse)
-├── data/exercises.ts ~44-exercise seed library, auto-seeded into IDB on first run
+│                    muscleVolumePerWeek, bodyWeightTrend, cardioThisWeek — pure)
+├── db/              idb wrapper: db.ts (schema v2 + migrations), exercises/templates/
+│                    sessions/records/cardioEntries repos; exercises.ts owns custom-exercise
+│                    helpers (makeCustomExerciseId, deleteExercise, exerciseInUse)
+├── data/exercises.ts ~44-exercise seed library, auto-seeded into IDB on first run;
+│                    data/cardio.ts (CARDIO_ACTIVITIES, DISTANCE_ACTIVITIES)
 ├── hooks/           useRestTimer (timestamp countdown + sound/vibrate/notification),
-│                    useApplyTheme (.dark class on <html>), useAsync
+│                    useApplyTheme (.dark class on <html>), useAsync,
+│                    useRadiogroupArrows (WAI-ARIA arrow-key radio navigation)
 ├── utils/           calculations.ts (volume, Epley 1RM, detectSetPRs, suggestRestSec — pure),
 │                    supersets.ts (block/round helpers — pure),
 │                    strengthStandard.ts (big-lift bodyweight-ratio standards + classify),
@@ -62,9 +66,10 @@ e2e/ — Playwright specs (onboarding, custom-exercise CRUD, full build→train�
 - **Exercise** — seeded catalog + custom exercises (id, muscle group, equipment, type, instructions); custom ids use the `ex-custom-` prefix
 - **WorkoutTemplate** — reusable plan; `exercises[].sets[]` hold targetReps/targetWeight/restSec; `supersetGroup` links consecutive exercises into round-based blocks
 - **WorkoutSession** — finished record; per-set SetRecord `{weight(kg), reps, completedAt}` plus optional `rpe`/`note`
+- **CardioEntry** — standalone activity log (`{activity, durationMin, distanceKm?, calories?, notes?, date}`) in its own IDB store; appears in History + weekly stats
 - **PersonalRecord** — one row per PR hit; types: `max-weight`, `best-1rm`, `best-set-volume`. History is kept (multiple rows per type across sessions); resolve bests via `getBestRecords()`
 
-IndexedDB stores: `exercises`, `templates`, `sessions`, `records`. Schema bump requires a new version in `src/db/db.ts`. Body-weight log lives in the settings store (`profile.bodyWeightLog`), not IDB.
+IndexedDB stores: `exercises`, `templates`, `sessions`, `records`, `cardioEntries`. Schema bump requires a new version + `if (oldVersion < N)` guard in `src/db/db.ts`. Body-weight log and `weeklyPlan` live in the settings store (localStorage), not IDB.
 
 ## Critical conventions & gotchas
 
@@ -87,14 +92,15 @@ IndexedDB stores: `exercises`, `templates`, `sessions`, `records`. Schema bump r
 ## Current Status (updated Aug 28, 2026)
 
 - **Live:** https://ritchegerona.github.io/Gym-Workout-App · Repo: `ritchegerona/Gym-Workout-App` (public, MIT)
-- **Quality gates:** 119/119 unit tests · 3/3 Playwright e2e · Lighthouse 94–95 perf / 100 a11y / 100 BP / 100 SEO · CI auto-deploys `main` → Pages
+- **Quality gates:** 129/129 unit tests · 5/5 Playwright e2e · Lighthouse 94–95 perf / 100 a11y / 100 BP / 100 SEO · CI auto-deploys `main` → Pages (title: typecheck + unit tests; typecheck of e2e not covered — e2e/ sits outside tsconfig include)
 - **Shipped v1.2.0:** custom exercise CRUD, supersets/circuits (builder grouping + round-based active flow + swap), mid-workout exercise swap, RPE/set notes, smart rest defaults by exercise type, body-weight logging with trend sparkline, weekly muscle-group volume chart, 1RM calculator + strength standards, Dialog focus trap + skip link, Playwright e2e suite
-- **Deploy mechanics:** CI sets `BASE_PATH=/<repo-name>/`; GitHub Actions pinned to node24-compatible majors (checkout@v7, setup-node@v7, configure-pages@v6, upload-pages-artifact@v5, deploy-pages@v5)
+- **Shipped v1.3.0:** body-weight trend chart on Progress, Playwright e2e CI job, cardio activities (schema v2 `cardioEntries` store + log dialog + History timeline), weekly planner (`/planner`, Home shows today's scheduled workout/cardio, cardio "This Week" stat), WAI-ARIA arrow-key radiogroup navigation (RPE, filters, time range, planner, exercise type)
+- **Deploy mechanics:** CI sets `BASE_PATH=/<repo-name>/`; GitHub Actions pinned to node24-compatible majors (checkout@v7, setup-node@v7, configure-pages@v6, upload-pages-artifact@v5, deploy-pages@v5). The `e2e` job runs `npm run test:e2e` in parallel with the Pages deploy.
 
 ### Next up (in order)
-1. Run Playwright e2e in CI (separate job, `npm run test:e2e` with `npx playwright install --with-deps chromium`)
-2. Cardio activities + weekly planner
-3. Deeper keyboard/screen-reader pass (e.g. rest select keyboard ops, RPE radiogroup arrows)
-4. Body-weight trend chart on the Progress page (existing log already in settings store)
+1. Cardio on Progress page (minutes per week line/bar chart) + Planner day ordering/editing polish
+2. Reminders/notifications for scheduled plan days (Settings toggle + Home banner)
+3. Deeper keyboard/screen-reader pass (e.g. table navigation in session detail, custom select keyboard ops)
+4. JSON export/import for cardio + planner data
 
 Deferred to v3: optional accounts + cloud sync.

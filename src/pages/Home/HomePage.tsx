@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   BarChart3,
+  CalendarDays,
   ClipboardList,
   Dumbbell,
   Flame,
+  HeartPulse,
   History,
   Play,
   Plus,
@@ -14,17 +16,19 @@ import {
 import { useAsync } from "../../hooks/useAsync";
 import { getAllTemplates } from "../../db/templates";
 import { getFinishedSessions } from "../../db/sessions";
+import { getAllCardio } from "../../db/cardio";
 import { getBestRecords } from "../../db/records";
 import { useSettings } from "../../stores/settings";
 import { useActiveWorkout } from "../../stores/activeWorkout";
-import { computeWeeklySummary } from "../../services/statsService";
+import { cardioThisWeek, computeWeeklySummary } from "../../services/statsService";
 import { estimatedDurationMinutes, formatDuration, relativeDate } from "../../utils/format";
 import { formatWeight } from "../../utils/units";
 import { Button } from "../../components/ui/Button";
 import { Card, CardContent } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { CardioLogDialog } from "../../components/cardio/CardioLogDialog";
 import { InstallBanner } from "../../components/PwaPrompts";
-import type { WorkoutTemplate } from "../../types";
+import type { CardioActivity, WorkoutTemplate } from "../../types";
 
 export default function HomePage() {
   const onboarded = useSettings((s) => s.onboarded);
@@ -36,15 +40,31 @@ export default function HomePage() {
 function HomeContent() {
   const navigate = useNavigate();
   const unit = useSettings((s) => s.unit);
+  const weeklyPlan = useSettings((s) => s.weeklyPlan);
   const startFromTemplate = useActiveWorkout((s) => s.startFromTemplate);
   const startEmpty = useActiveWorkout((s) => s.startEmpty);
   const hasActive = !!useActiveWorkout((s) => s.sessionId);
+  const [showCardio, setShowCardio] = useState(false);
 
   const templates = useAsync(getAllTemplates, []);
   const sessions = useAsync(getFinishedSessions, []);
   const records = useAsync(() => getBestRecords().then((r) => r.sort((a, b) => b.date - a.date)), []);
+  const cardio = useAsync(getAllCardio, []);
+
+  const planToday = useMemo(
+    () => weeklyPlan.find((e) => e.day === new Date().getDay()),
+    [weeklyPlan],
+  );
+  const plannedWorkout = useMemo(
+    () =>
+      planToday?.type === "workout"
+        ? (templates.data ?? []).find((t) => t.id === planToday.refId) ?? null
+        : null,
+    [planToday, templates.data],
+  );
 
   const suggested = useMemo<WorkoutTemplate | null>(() => {
+    if (plannedWorkout) return plannedWorkout;
     const list = templates.data ?? [];
     if (list.length === 0) return null;
     return (
@@ -53,11 +73,15 @@ function HomeContent() {
         return (b.lastPerformedAt ?? 0) - (a.lastPerformedAt ?? 0);
       })[0] ?? null
     );
-  }, [templates.data]);
+  }, [plannedWorkout, templates.data]);
 
   const weekly = useMemo(
     () => computeWeeklySummary(sessions.data ?? []),
     [sessions.data],
+  );
+  const cardioWeek = useMemo(
+    () => cardioThisWeek(cardio.data ?? []),
+    [cardio.data],
   );
 
   function handleStartSuggested() {
@@ -79,10 +103,31 @@ function HomeContent() {
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Today&apos;s Workout
           </p>
-          {suggested ? (
+          {planToday?.type === "cardio" ? (
             <>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight">
-                {suggested.name}
+              <h2 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight">
+                <HeartPulse size={22} aria-hidden="true" /> {planToday.name}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Scheduled cardio · tap to log today&apos;s session
+              </p>
+              <Button
+                size="lg"
+                className="mt-4 w-full"
+                onClick={() => setShowCardio(true)}
+              >
+                <HeartPulse size={18} aria-hidden="true" /> Log {planToday.name}
+              </Button>
+            </>
+          ) : suggested ? (
+            <>
+              <h2 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight">
+                <span className="truncate">{suggested.name}</span>
+                {plannedWorkout && (
+                  <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
+                    Scheduled
+                  </span>
+                )}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {suggested.exercises.length} exercises · ~
@@ -165,8 +210,14 @@ function HomeContent() {
           <h2 id="weekly-heading" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             This Week
           </h2>
+          <Link
+            to="/planner"
+            className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            <CalendarDays size={14} aria-hidden="true" /> Plan week
+          </Link>
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatTile icon={ClipboardList} label="Workouts" value={String(weekly.workouts)} />
           <StatTile
             icon={BarChart3}
@@ -179,6 +230,11 @@ function HomeContent() {
             value={formatDuration(weekly.totalDurationMs)}
           />
           <StatTile icon={Flame} label="Streak" value={`${weekly.streakDays} day${weekly.streakDays === 1 ? "" : "s"}`} />
+          <StatTile
+            icon={HeartPulse}
+            label="Cardio"
+            value={`${cardioWeek.sessions}× ${cardioWeek.minutes} min`}
+          />
         </div>
       </section>
 
@@ -228,6 +284,16 @@ function HomeContent() {
           <History size={16} aria-hidden="true" /> View Full History
         </Button>
       </Link>
+
+      <CardioLogDialog
+        open={showCardio}
+        onClose={() => setShowCardio(false)}
+        initialActivity={
+          planToday?.type === "cardio"
+            ? (planToday.name as CardioActivity)
+            : "Run"
+        }
+      />
     </div>
   );
 }

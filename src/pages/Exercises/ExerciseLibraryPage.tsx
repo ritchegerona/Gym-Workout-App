@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import {
@@ -17,6 +17,7 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Button } from "../../components/ui/Button";
 import { ExerciseFormDialog } from "../../components/exercise/ExerciseFormDialog";
 import { useToast } from "../../components/ui/Toast";
+import { useRadiogroupArrows } from "../../hooks/useRadiogroupArrows";
 
 export default function ExerciseLibraryPage() {
   const navigate = useNavigate();
@@ -269,8 +270,11 @@ function FilterRow({
   onChange: (v: string) => void;
   label: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useRadiogroupArrows(ref);
   return (
     <div
+      ref={ref}
       role="radiogroup"
       aria-label={label}
       className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"

@@ -13,8 +13,9 @@ import {
 } from "./exercises";
 import { deleteTemplate, getAllTemplates, getTemplate, saveTemplate } from "./templates";
 import { getAllSessions, getSession, saveSession } from "./sessions";
+import { deleteCardioEntry, getAllCardio, saveCardioEntry } from "./cardio";
 import { clearAllData, getBestRecords, saveRecords } from "./records";
-import type { WorkoutTemplate, WorkoutSession, PersonalRecord } from "../types";
+import type { WorkoutTemplate, WorkoutSession, PersonalRecord, CardioEntry } from "../types";
 
 function makeTemplate(overrides: Partial<WorkoutTemplate> = {}): WorkoutTemplate {
   return {
@@ -193,6 +194,32 @@ describe("session persistence", () => {
     const finished = await getAllSessions();
     const withEnd = finished.filter((s) => s.endedAt !== null);
     expect(withEnd).toHaveLength(1);
+  });
+});
+
+describe("cardio persistence", () => {
+  function makeCardio(overrides: Partial<CardioEntry> = {}): CardioEntry {
+    return {
+      id: "c-" + Math.random().toString(36).slice(2),
+      activity: "Run",
+      durationMin: 30,
+      distanceKm: 5,
+      date: Date.now(),
+      ...overrides,
+    };
+  }
+
+  it("saves, lists newest-first and deletes cardio entries", async () => {
+    const a = makeCardio({ date: 1000 });
+    const b = makeCardio({ date: 2000, activity: "Cycle" });
+    await saveCardioEntry(a);
+    await saveCardioEntry(b);
+
+    const list = await getAllCardio();
+    expect(list.map((c) => c.activity)).toEqual(["Cycle", "Run"]);
+
+    await deleteCardioEntry(a.id);
+    expect((await getAllCardio()).map((c) => c.id)).toEqual([b.id]);
   });
 });
 

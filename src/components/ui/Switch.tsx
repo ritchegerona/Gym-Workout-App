@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { cn } from "../../lib/utils";
+import { useRadiogroupArrows } from "../../hooks/useRadiogroupArrows";
 
 interface SwitchProps {
   checked: boolean;
@@ -47,8 +49,11 @@ export function ToggleGroup<T extends string | number>({
   label,
   size = "md",
 }: ToggleGroupProps<T>) {
+  const ref = useRef<HTMLDivElement>(null);
+  useRadiogroupArrows(ref);
   return (
     <div
+      ref={ref}
       role="radiogroup"
       aria-label={label}
       className="flex gap-1 rounded-xl bg-muted p-1"
