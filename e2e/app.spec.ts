@@ -218,13 +218,63 @@ test.describe("recovery & resume", () => {
     await expect(
       page.getByRole("dialog", { name: "Active workout found" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Resume Workout" }).click();
-
-    // Resume navigates straight back into the workout
+    // Resume navigates straight back into the workout.
+    // The Home card also advertises "Resume Workout" behind the modal,
+    // so scope to the dialog itself.
+    await page
+      .getByRole("dialog", { name: "Active workout found" })
+      .getByRole("button", { name: "Resume Workout" })
+      .click();
     await expect(page).toHaveURL(/\/active$/);
     await expect(page.getByText("Barbell Squat").first()).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Complete set 1" }),
     ).toBeVisible();
+  });
+
+  test("home card shows a Resume Workout button after dismissing the prompt", async ({
+    page,
+  }) => {
+    await seedOnboardedWithPlan(page, "workout");
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "irontrack-active-workout",
+        JSON.stringify({
+          version: 0,
+          state: {
+            sessionId: "e2e-resume",
+            templateId: "t-x",
+            name: "Push Day",
+            startedAt: Date.now() - 60_000,
+            exercises: [
+              {
+                exerciseId: "x1",
+                name: "Bench Press",
+                restSec: 120,
+                targetSets: 1,
+                supersetGroup: null,
+                sets: [{ weight: 60, reps: 10, completedAt: 0 }],
+              },
+            ],
+            restEndsAt: null,
+            restDurationSec: 0,
+            restReason: "set",
+          },
+        }),
+      );
+    });
+    await seedOnboardedWithPlan(page, "workout");
+
+    await page.goto("/");
+    await page.getByRole("dialog", { name: "Active workout found" }).waitFor();
+    await page.keyboard.press("Escape"); // dismiss without discarding
+
+    // The main card promotes "Start Workout" -> "Resume Workout"
+    await expect(
+      page.getByRole("button", { name: "Resume Workout" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Resume Workout" }).click();
+    await expect(page).toHaveURL(/\/active$/);
+    await expect(page.getByText("Bench Press").first()).toBeVisible();
   });
 });

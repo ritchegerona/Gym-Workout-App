@@ -44,6 +44,7 @@ function HomeContent() {
   const startFromTemplate = useActiveWorkout((s) => s.startFromTemplate);
   const startEmpty = useActiveWorkout((s) => s.startEmpty);
   const hasActive = !!useActiveWorkout((s) => s.sessionId);
+  const activeName = useActiveWorkout((s) => s.name);
   const [showCardio, setShowCardio] = useState(false);
 
   const templates = useAsync(getAllTemplates, []);
@@ -103,7 +104,22 @@ function HomeContent() {
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Today&apos;s Workout
           </p>
-          {planToday?.type === "cardio" ? (
+          {hasActive ? (
+            <>
+              <h2 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight">
+                <span className="truncate">{activeName || "Workout in progress"}</span>
+                <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
+                  In progress
+                </span>
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Resume where you left off
+              </p>
+              <Button size="lg" className="mt-4 w-full" onClick={() => navigate("/active")}>
+                <Play size={18} aria-hidden="true" /> Resume Workout
+              </Button>
+            </>
+          ) : planToday?.type === "cardio" ? (
             <>
               <h2 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight">
                 <HeartPulse size={22} aria-hidden="true" /> {planToday.name}
@@ -173,14 +189,6 @@ function HomeContent() {
           )}
         </CardContent>
       </Card>
-
-      {hasActive && (
-        <Link to="/active">
-          <Card className="border-primary/40 p-4 text-sm font-semibold text-primary transition-colors hover:bg-muted">
-            You have a workout in progress — tap to resume →
-          </Card>
-        </Link>
-      )}
 
       {/* Quick actions */}
       <div className="grid grid-cols-3 gap-3">
