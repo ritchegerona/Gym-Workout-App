@@ -56,7 +56,7 @@ export function Dialog({ open, onClose, title, children, footer, className }: Di
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-label={title}

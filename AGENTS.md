@@ -87,12 +87,12 @@ IndexedDB stores: `exercises`, `templates`, `sessions`, `records`, `cardioEntrie
 1. `npm run typecheck` passes
 2. `npm test` passes (add/extend tests for logic: calculations, PR detection, persistence, timer)
 3. `npm run build` succeeds
-4. Manual check of mobile layout (≤430px) and desktop (≥1024px) if UI changed
+4. `npm run test:e2e` passes — the suite runs on both a desktop and a Pixel 7 mobile profile, so mobile regressions (viewport overflow, tab-bar/dialog overlap) are caught automatically.
 
 ## Current Status (updated Aug 28, 2026)
 
 - **Live:** https://ritchegerona.github.io/Gym-Workout-App · Repo: `ritchegerona/Gym-Workout-App` (public, MIT)
-- **Quality gates:** 129/129 unit tests · 5/5 Playwright e2e · Lighthouse 94–95 perf / 100 a11y / 100 BP / 100 SEO · CI auto-deploys `main` → Pages (title: typecheck + unit tests; typecheck of e2e not covered — e2e/ sits outside tsconfig include)
+- **Quality gates:** 129/129 unit tests · 12/12 Playwright e2e (6 desktop + 6 on a Pixel 7 mobile profile, incl. dialog-above-tab-bar & recovery/resume flows) · Lighthouse 94–95 perf / 100 a11y / 100 BP / 100 SEO · CI auto-deploys `main` → Pages (title: typecheck + unit tests; typecheck of e2e not covered — e2e/ sits outside tsconfig include)
 - **Shipped v1.2.0:** custom exercise CRUD, supersets/circuits (builder grouping + round-based active flow + swap), mid-workout exercise swap, RPE/set notes, smart rest defaults by exercise type, body-weight logging with trend sparkline, weekly muscle-group volume chart, 1RM calculator + strength standards, Dialog focus trap + skip link, Playwright e2e suite
 - **Shipped v1.3.0:** body-weight trend chart on Progress, Playwright e2e CI job, cardio activities (schema v2 `cardioEntries` store + log dialog + History timeline), weekly planner (`/planner`, Home shows today's scheduled workout/cardio, cardio "This Week" stat), WAI-ARIA arrow-key radiogroup navigation (RPE, filters, time range, planner, exercise type)
 - **Deploy mechanics:** CI sets `BASE_PATH=/<repo-name>/`; GitHub Actions pinned to node24-compatible majors (checkout@v7, setup-node@v7, configure-pages@v6, upload-pages-artifact@v5, deploy-pages@v5). The `e2e` job runs `npm run test:e2e` in parallel with the Pages deploy.

@@ -1,5 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+} from "react-router-dom";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AppLayout } from "./components/layout/AppLayout";
 import { ToastProvider } from "./components/ui/Toast";
@@ -28,6 +34,7 @@ const ProgressPage = lazy(() => import("./pages/Progress/ProgressPage"));
 const PlannerPage = lazy(() => import("./pages/Planner/PlannerPage"));
 
 function RecoveryPrompt({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
   const name = useActiveWorkout((s) => s.name);
   const discardWorkout = useActiveWorkout((s) => s.discardWorkout);
 
@@ -48,7 +55,13 @@ function RecoveryPrompt({ onClose }: { onClose: () => void }) {
           >
             Discard
           </Button>
-          <Button className="flex-1" onClick={onClose}>
+          <Button
+            className="flex-1"
+            onClick={() => {
+              onClose();
+              navigate("/active");
+            }}
+          >
             Resume Workout
           </Button>
         </div>

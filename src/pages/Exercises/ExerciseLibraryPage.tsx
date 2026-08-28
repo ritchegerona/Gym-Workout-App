@@ -103,7 +103,10 @@ export default function ExerciseLibraryPage() {
             {filtered.length} exercises
           </p>
         </div>
-        <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+        <Button
+          aria-label="New exercise"
+          onClick={() => { setEditing(null); setFormOpen(true); }}
+        >
           <Plus size={18} aria-hidden="true" />
           <span className="hidden sm:inline">Add</span>
         </Button>

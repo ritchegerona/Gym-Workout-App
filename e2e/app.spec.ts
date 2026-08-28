@@ -68,9 +68,11 @@ test.describe("exercises", () => {
     page,
   }) => {
     await seedOnboarded(page);
+    // Mobile viewport: the dialog's save button must be reachable above the tab bar
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/exercises");
 
-    await page.getByRole("button", { name: /Add/ }).click();
+    await page.getByRole("button", { name: "New exercise" }).click();
     await expect(
       page.getByRole("dialog", { name: "New Exercise" }),
     ).toBeVisible();
@@ -173,5 +175,56 @@ test.describe("planner & keyboard", () => {
     // Entry shows up in history
     await page.goto("/history");
     await expect(page.getByText("45m 00s").first()).toBeVisible();
+  });
+});
+
+test.describe("recovery & resume", () => {
+  test("resumes a previously-active workout from the recovery prompt on mobile", async ({
+    page,
+  }) => {
+    await seedOnboarded(page);
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "irontrack-active-workout",
+        JSON.stringify({
+          version: 0,
+          state: {
+            sessionId: "e2e-resume",
+            templateId: null,
+            name: "Resume Me",
+            startedAt: Date.now() - 60_000,
+            exercises: [
+              {
+                exerciseId: "x1",
+                name: "Barbell Squat",
+                restSec: 120,
+                targetSets: 1,
+                supersetGroup: null,
+                sets: [{ weight: 60, reps: 8, completedAt: 0 }],
+              },
+            ],
+            restEndsAt: null,
+            restDurationSec: 0,
+            restReason: "set",
+          },
+        }),
+      );
+    });
+
+    // Phone viewport: the bottom tab bar must NOT cover the dialog's buttons
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    await expect(
+      page.getByRole("dialog", { name: "Active workout found" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Resume Workout" }).click();
+
+    // Resume navigates straight back into the workout
+    await expect(page).toHaveURL(/\/active$/);
+    await expect(page.getByText("Barbell Squat").first()).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Complete set 1" }),
+    ).toBeVisible();
   });
 });

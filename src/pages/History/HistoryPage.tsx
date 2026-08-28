@@ -74,9 +74,9 @@ export default function HistoryPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold tracking-tight">History</h1>
-        <div className="flex gap-2">
+        <div className="ml-auto flex gap-2">
           <Button variant="secondary" onClick={() => setShowCardio(true)}>
             <Activity size={16} aria-hidden="true" /> Log Cardio
           </Button>

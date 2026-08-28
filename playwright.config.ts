@@ -17,6 +17,10 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "mobile-chromium",
+      use: { ...devices["Pixel 7"] },
+    },
   ],
   webServer: {
     command: "npm run build && npm run preview -- --port 4173 --strictPort",
