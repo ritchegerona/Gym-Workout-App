@@ -135,6 +135,25 @@ export function cardioThisWeek(cardio: CardioEntry[]): CardioWeek {
   };
 }
 
+/** Cardio volume per week (last N weeks, Mon start). */
+export function cardioPerWeek(cardio: CardioEntry[], weeks = 8): { label: string; minutes: number }[] {
+  const now = new Date();
+  const out: { label: string; minutes: number }[] = [];
+  for (let i = weeks - 1; i >= 0; i--) {
+    const ws = startOfWeek(now);
+    ws.setDate(ws.getDate() - i * 7);
+    const start = ws.getTime();
+    const end = start + 7 * 86_400_000;
+    const inWeek = cardio.filter((c) => c.date >= start && c.date < end);
+    const weekStartDate = new Date(start);
+    out.push({
+      label: weekStartDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      minutes: inWeek.reduce((sum, c) => sum + c.durationMin, 0),
+    });
+  }
+  return out;
+}
+
 export interface BodyWeightPoint {
   date: number;
   weightKg: number;

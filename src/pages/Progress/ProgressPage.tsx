@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { Activity, Flame, Timer, TrendingUp } from "lucide-react";
+import { getAllCardio } from "../../db/cardio";
 import { useAsync } from "../../hooks/useAsync";
 import { getFinishedSessions } from "../../db/sessions";
 import { getAllRecords } from "../../db/records";
@@ -22,6 +23,7 @@ import {
   exerciseProgression,
   muscleVolumePerWeek,
   workoutsPerWeek,
+  cardioPerWeek,
 } from "../../services/statsService";
 import { formatDateShort, formatDuration, relativeDate } from "../../utils/format";
 import { formatWeight, kgToDisplay } from "../../utils/units";
@@ -52,6 +54,7 @@ export default function ProgressPage() {
   const sessions = useAsync(getFinishedSessions, []);
   const records = useAsync(getAllRecords, []);
   const exercises = useAsync(getAllExercises, []);
+  const cardio = useAsync(getAllCardio, []);
 
   const [rangeWeeks, setRangeWeeks] = useState<number>(13);
   const [exerciseId, setExerciseId] = useState<string>("");
@@ -264,7 +267,40 @@ export default function ProgressPage() {
         )}
       </section>
 
-      {/* Strength progression */}
+      {/* Cardio per week */}
+      <section
+        className="rounded-2xl border border-border bg-card p-4 shadow-sm"
+        aria-label="Cardio per week"
+      >
+        <h2 className="mb-1 text-sm font-semibold">Cardio minutes per week</h2>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Cardio volume across recent weeks.
+        </p>
+        {cardio.data?.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No cardio sessions yet — log some cardio activities to see the trend.
+          </p>
+        ) : (
+          <ChartFrame>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={cardioPerWeek(cardio.data ?? [], rangeWeeks)} margin={{ top: 4, right: 4, left: -14, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--color-card)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 12,
+                    fontSize: 12,
+                  }}
+                />
+                <Bar dataKey="minutes" fill="var(--color-primary)" radius={[6, 6, 0, 0]} maxBarSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartFrame>
+        )}
+      </section>      {/* Strength progression */}
       <section
         className="rounded-2xl border border-border bg-card p-4 shadow-sm"
         aria-label="Strength progression"
